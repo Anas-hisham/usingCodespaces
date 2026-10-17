@@ -2,12 +2,12 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Inbox, Calendar, Users, Mail,
   Bell, ChevronDown, LogOut, TrendingUp, CheckCircle2,
-  AlertTriangle, Trophy,
+  AlertTriangle, Trophy, BarChart3,
 } from 'lucide-react';
 import { useStore, readAllNotifications, readNotification } from '@/store';
 import type { User } from '@/types';
 
-export type Page = 'dashboard' | 'workqueue' | 'calendar' | 'leads' | 'updates' | 'tasks' | 'emails' | 'sales';
+export type Page = 'dashboard' | 'workqueue' | 'calendar' | 'leads' | 'updates' | 'tasks' | 'emails' | 'sales' | 'analytics';
 
 interface NavItem {
   id: Page;
@@ -21,6 +21,7 @@ const ALL_ROLES: User['role'][] = ['operation_manager', 'team_leader', 'agent'];
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL_ROLES },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['operation_manager', 'team_leader'] },
   { id: 'workqueue', label: 'Work Queue', icon: Inbox, roles: ['agent'] },
   { id: 'calendar', label: 'Calendar', icon: Calendar, roles: ALL_ROLES },
   { id: 'leads', label: 'Leads', icon: Users, roles: ['agent'] },

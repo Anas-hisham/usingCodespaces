@@ -278,9 +278,7 @@ export function Sales() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-slate-900 truncate">{s.leadName}</div>
-                    <div className="text-xs text-slate-500 truncate">
-                      {s.product}{!isAgent && agent ? ` • ${agent.name}` : ''}
-                    </div>
+                    {!isAgent && agent && <div className="text-xs text-slate-500 truncate">{agent.name}</div>}
                   </div>
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0 ${cfg.chip}`}>{cfg.label}</span>
                   {isQuality && (
@@ -318,7 +316,7 @@ export function Sales() {
 }
 
 // ---------------------------------------------------------------------------
-// Quality: record a sale  (choose or write the lead, choose or write what the customer got)
+// Quality: record a sale  (agent, lead, sale type, date)
 // ---------------------------------------------------------------------------
 function RecordSaleModal({
   state, me, onClose, onSave,
@@ -331,27 +329,24 @@ function RecordSaleModal({
   const agents = state.users.filter(u => u.role === 'agent');
   const [agentId, setAgentId] = useState('');
   const [leadId, setLeadId] = useState('');
-  const [saleType, setSaleType] = useState<SaleType>('new');
-  const [product, setProduct] = useState('');
+  const [saleType, setSaleType] = useState<SaleType | ''>('');
   const [date, setDate] = useState(localDateStr());
 
   const agentLeads = useMemo(() => state.leads.filter(l => l.agentId === agentId), [state.leads, agentId]);
   const pickedLead = state.leads.find(l => l.id === leadId);
-  const knownProducts = useMemo(() => [...new Set(state.sales.map(s => s.product))].sort(), [state.sales]);
 
   const leadName = pickedLead?.companyName ?? '';
   const neverReached = !!pickedLead && !hasReachedPerson(pickedLead);
-  const canSave = !!agentId && !!pickedLead && !!product.trim() && !!date;
+  const canSave = !!agentId && !!pickedLead && !!saleType && !!date;
 
   const handleSave = () => {
-    if (!canSave) return;
+    if (!canSave || !saleType) return;
     onSave({
       id: crypto.randomUUID(),
       agentId,
       leadId,
       leadName,
       saleType,
-      product: product.trim(),
       date,
       createdBy: me.id,
       createdAt: new Date().toISOString(),
@@ -407,31 +402,10 @@ function RecordSaleModal({
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Sale type</label>
-            <div className="flex gap-2">
-              {SALE_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setSaleType(t.value)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    saleType === t.value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">What the customer got</label>
-            <input
-              type="text" list="known-products" value={product} onChange={e => setProduct(e.target.value)}
-              placeholder="Choose a previous one or write a new one" className={input}
-            />
-            <datalist id="known-products">
-              {knownProducts.map(p => <option key={p} value={p} />)}
-            </datalist>
+            <select value={saleType} onChange={e => setSaleType(e.target.value as SaleType | '')} className={input}>
+              <option value="">Select sale type...</option>
+              {SALE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
           </div>
 
           <div>

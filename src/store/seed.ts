@@ -265,20 +265,20 @@ export function createInitialState(): AppState {
   // Sample sales, all inside the current month so the targets/progress show something right away
   const pad2 = (n: number) => String(n).padStart(2, '0');
   const monthDay = (d: number) => `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(Math.min(d, today.getDate()))}`;
-  const mkSale = (n: number, agentId: string, leadId: string, leadName: string, saleType: Sale['saleType'], product: string, d: number): Sale => ({
-    id: `s-${n}`, agentId, leadId, leadName, saleType, product, date: monthDay(d), createdBy: 'u-q1', createdAt: new Date().toISOString(),
+  const mkSale = (n: number, agentId: string, leadId: string, leadName: string, saleType: Sale['saleType'], d: number): Sale => ({
+    id: `s-${n}`, agentId, leadId, leadName, saleType, date: monthDay(d), createdBy: 'u-q1', createdAt: new Date().toISOString(),
   });
   const sales: Sale[] = [
-    mkSale(1, 'u-a1', 'l-1', 'TechSphere Solutions', 'new', 'Activation Plan - Gold', 2),
-    mkSale(2, 'u-a1', 'l-2', 'GreenLeaf Trading', 'upsell', 'Extra Seats Pack', 4),
-    mkSale(3, 'u-a1', 'l-9', 'Horus Logistics', 'new', 'Activation Plan - Silver', 5),
-    mkSale(4, 'u-a2', 'l-3', 'Nile Valley Imports', 'renewal', 'Annual Renewal', 3),
-    mkSale(5, 'u-a2', 'l-4', 'Pyramid Construction', 'new', 'Activation Plan - Gold', 6),
-    mkSale(6, 'u-a3', 'l-5', 'Delta Food Industries', 'new', 'Retention Bundle', 2),
-    mkSale(7, 'u-a3', 'l-6', 'Cairo Digital Media', 'upsell', 'Premium Support', 3),
-    mkSale(8, 'u-a3', 'l-10', 'Giza Steel', 'renewal', 'Annual Renewal', 7),
-    mkSale(9, 'u-a3', 'l-11', 'Luxor Hotels', 'new', 'Activation Plan - Gold', 8),
-    mkSale(10, 'u-a4', 'l-8', 'Alexandria Pharma', 'new', 'Activation Plan - Silver', 5),
+    mkSale(1, 'u-a1', 'l-1', 'TechSphere Solutions', 'BP', 2),
+    mkSale(2, 'u-a1', 'l-2', 'GreenLeaf Trading', 'PPI', 4),
+    mkSale(3, 'u-a1', 'l-9', 'Horus Logistics', 'MUA', 5),
+    mkSale(4, 'u-a2', 'l-3', 'Nile Valley Imports', 'Retention', 3),
+    mkSale(5, 'u-a2', 'l-4', 'Pyramid Construction', 'BP', 6),
+    mkSale(6, 'u-a3', 'l-5', 'Delta Food Industries', 'ATEP', 2),
+    mkSale(7, 'u-a3', 'l-6', 'Cairo Digital Media', 'Activation', 3),
+    mkSale(8, 'u-a3', 'l-10', 'Giza Steel', 'Retention', 7),
+    mkSale(9, 'u-a3', 'l-11', 'Luxor Hotels', 'BP', 8),
+    mkSale(10, 'u-a4', 'l-8', 'Alexandria Pharma', 'MUA', 5),
   ];
 
   return {

@@ -139,7 +139,7 @@ export function dataQuality(leads: Lead[], sales: Sale[]): QualityIssue[] {
   const all = leads.reduce((n, l) => n + l.callLogs.length, 0);
   if (noReason) out.push({ id: 'no-reason', level: 'info', text: `${noReason} of ${all} calls have no structured reason; they are classified from the comment text.` });
   const dup = new Set<string>(); const seen = new Set<string>();
-  for (const s of sales) { const k = `${s.leadId}|${s.saleType}|${s.product}|${s.date}`; if (seen.has(k)) dup.add(k); seen.add(k); }
-  if (dup.size) out.push({ id: 'dup-sale', level: 'warn', text: `${dup.size} possible duplicate sale(s): same lead, type, product and date.` });
+  for (const s of sales) { const k = `${s.leadId}|${s.saleType}|${s.date}`; if (seen.has(k)) dup.add(k); seen.add(k); }
+  if (dup.size) out.push({ id: 'dup-sale', level: 'warn', text: `${dup.size} possible duplicate sale(s): same lead, type and date.` });
   return out;
 }

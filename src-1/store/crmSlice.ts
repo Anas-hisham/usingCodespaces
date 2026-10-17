@@ -20,6 +20,9 @@ export function loadInitialState(): AppState {
         // Older saved data: add the Quality user and the sales list so nothing breaks after an upgrade.
         const fresh = createInitialState();
         if (!parsed.sales) parsed.sales = fresh.sales;
+        // Older sales had an optional leadId: link them by company name when possible (leadId is required now)
+        parsed.sales = parsed.sales.map((x: Sale) =>
+          x.leadId ? x : { ...x, leadId: parsed.leads.find((l: Lead) => l.companyName === x.leadName)?.id ?? '' });
         if (!parsed.users.some((u: { role: string }) => u.role === 'quality')) {
           parsed.users.push(...fresh.users.filter(u => u.role === 'quality'));
         }
@@ -418,7 +421,10 @@ const slice = createSlice({
     // ---------- sales (Quality only) ----------
     addSale(state, a: PayloadAction<Sale>) {
       if (state.users.find(u => u.id === state.currentUserId)?.role !== 'quality') return;
-      state.sales.unshift(a.payload);
+      // A sale must belong to a real lead: the lead (not the company name) is what identifies it
+      const lead = state.leads.find(l => l.id === a.payload.leadId);
+      if (!lead) return;
+      state.sales.unshift({ ...a.payload, leadName: lead.companyName });
     },
     deleteSale(state, a: PayloadAction<string>) {
       if (state.users.find(u => u.id === state.currentUserId)?.role !== 'quality') return;

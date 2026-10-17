@@ -4,6 +4,7 @@ import type {
   TouchPoint, LeadHistoryEntry, LeadAssignment,
 } from '@/types';
 import { createInitialState, type AppState } from './seed';
+import { migrateSale } from '@/lib/sales';
 import {
   isOpenTouchPoint, scheduleNext, statusFromCalls, highestCallType, effectiveCallType, expiryReferenceMs,
   fillTemplate, localDay, meetingStartMs, LEAD_EXPIRY_DAYS, MEETING_REMINDER_MINUTES, AUTO_EMAIL_ENABLED,
@@ -23,6 +24,8 @@ export function loadInitialState(): AppState {
         // Older sales had an optional leadId: link them by company name when possible (leadId is required now)
         parsed.sales = parsed.sales.map((x: Sale) =>
           x.leadId ? x : { ...x, leadId: parsed.leads.find((l: Lead) => l.companyName === x.leadName)?.id ?? '' });
+        // Older sales had other sale types and a "what the customer got" text: convert them
+        parsed.sales = parsed.sales.map(migrateSale);
         if (!parsed.users.some((u: { role: string }) => u.role === 'quality')) {
           parsed.users.push(...fresh.users.filter(u => u.role === 'quality'));
         }

@@ -10,6 +10,7 @@ import { TeamUpdates } from '@/components/TeamUpdates';
 import { Tasks } from '@/components/Tasks';
 import { EmailCenter } from '@/components/EmailCenter';
 import { Sales } from '@/components/Sales';
+import { Analytics } from '@/components/Analytics';
 
 function AppContent() {
   const { state, dispatch } = useStore();
@@ -46,6 +47,7 @@ function AppContent() {
       {currentPage === 'tasks' && <Tasks />}
       {currentPage === 'emails' && <EmailCenter />}
       {currentPage === 'sales' && <Sales />}
+      {currentPage === 'analytics' && <Analytics />}
     </Layout>
   );
 }

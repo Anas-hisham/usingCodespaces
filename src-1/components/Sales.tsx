@@ -6,6 +6,7 @@ import {
 import { useStore, addSale, deleteSale } from '@/store';
 import type { AppState } from '@/store';
 import { LeadPicker } from '@/components/LeadPicker';
+import { hasReachedPerson } from '@/lib/analytics';
 import {
   AGENT_SALES_TARGET, SALE_TYPES, saleTypeConfig, countByType, teamSalesTarget,
   currentMonthKey, localDateStr, shiftMonth, monthLabel,
@@ -329,9 +330,7 @@ function RecordSaleModal({
 }) {
   const agents = state.users.filter(u => u.role === 'agent');
   const [agentId, setAgentId] = useState('');
-  const [leadMode, setLeadMode] = useState<'pick' | 'write'>('pick');
   const [leadId, setLeadId] = useState('');
-  const [leadText, setLeadText] = useState('');
   const [saleType, setSaleType] = useState<SaleType>('new');
   const [product, setProduct] = useState('');
   const [date, setDate] = useState(localDateStr());
@@ -340,15 +339,16 @@ function RecordSaleModal({
   const pickedLead = state.leads.find(l => l.id === leadId);
   const knownProducts = useMemo(() => [...new Set(state.sales.map(s => s.product))].sort(), [state.sales]);
 
-  const leadName = leadMode === 'pick' ? pickedLead?.companyName ?? '' : leadText.trim();
-  const canSave = !!agentId && !!leadName && !!product.trim() && !!date;
+  const leadName = pickedLead?.companyName ?? '';
+  const neverReached = !!pickedLead && !hasReachedPerson(pickedLead);
+  const canSave = !!agentId && !!pickedLead && !!product.trim() && !!date;
 
   const handleSave = () => {
     if (!canSave) return;
     onSave({
       id: crypto.randomUUID(),
       agentId,
-      leadId: leadMode === 'pick' ? leadId : undefined,
+      leadId,
       leadName,
       saleType,
       product: product.trim(),
@@ -389,27 +389,19 @@ function RecordSaleModal({
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-medium text-slate-700">Lead</label>
-              <button
-                type="button"
-                onClick={() => setLeadMode(m => (m === 'pick' ? 'write' : 'pick'))}
-                className="text-xs font-medium text-blue-600 hover:text-blue-700"
-              >
-                {leadMode === 'pick' ? 'Type it instead' : "Pick from agent's leads"}
-              </button>
-            </div>
-            {leadMode === 'pick' ? (
-              agentId ? (
-                <LeadPicker leads={agentLeads} value={leadId} onChange={setLeadId} placeholder="Search this agent's leads..." />
-              ) : (
-                <div className="px-4 py-2.5 rounded-xl border border-dashed border-slate-200 text-sm text-slate-400">Choose an agent first</div>
-              )
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Lead</label>
+            {agentId ? (
+              <LeadPicker leads={agentLeads} value={leadId} onChange={setLeadId} placeholder="Search this agent's leads..." />
             ) : (
-              <input
-                type="text" value={leadText} onChange={e => setLeadText(e.target.value)}
-                placeholder="Company or customer name" className={input}
-              />
+              <div className="px-4 py-2.5 rounded-xl border border-dashed border-slate-200 text-sm text-slate-400">Choose an agent first</div>
+            )}
+            {pickedLead && (
+              <div className="mt-1.5 text-xs text-slate-500">{pickedLead.leadCode} · {pickedLead.campaignCode}</div>
+            )}
+            {neverReached && (
+              <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                Nobody has spoken to this lead yet (no Discovery call or meeting). Check that this is the right lead before saving.
+              </div>
             )}
           </div>
 

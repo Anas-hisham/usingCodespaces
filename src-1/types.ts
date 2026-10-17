@@ -39,9 +39,14 @@ export interface Workflow {
   touchPoints: TouchPointTemplate[];
 }
 
+// Structured outcome reason for a call. Optional: when it is empty the analytics fall back to reading the comment text.
+export type CallReason =
+  | 'interested' | 'callback' | 'price' | 'timing' | 'not_interested' | 'wrong_contact' | 'no_answer' | 'voicemail' | 'other';
+
 export interface CallLog {
   id: string;
   type: CallType;
+  reason?: CallReason;
   description: string;
   timestamp: string;
   touchPointOrder: number;
@@ -209,8 +214,8 @@ export type SaleType = 'new' | 'upsell' | 'renewal';
 export interface Sale {
   id: string;
   agentId: string;
-  leadId?: string;        // set when Quality picked a lead from the agent's leads
-  leadName: string;       // company name (picked) or whatever Quality typed
+  leadId: string;         // REQUIRED: the lead is the identity of a sale (company names can repeat). Campaign is derived from it.
+  leadName: string;       // snapshot of the company name at the time of the sale (display only)
   saleType: SaleType;
   product: string;        // what the customer got
   date: string;           // YYYY-MM-DD, the day the sale happened
