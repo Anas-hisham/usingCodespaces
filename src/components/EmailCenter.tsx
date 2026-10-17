@@ -1,15 +1,18 @@
 import { useState, useMemo } from 'react';
 import {
-  Mail, Search, Send, X, FileText, PenSquare,
+  Mail, Search, Send, X, FileText, PenSquare, Users,
 } from 'lucide-react';
-import { useStore, sendCustomEmail, sendEmail } from '@/store';
+import { useStore, sendCustomEmail, sendEmail, bulkEmail } from '@/store';
 import { LeadPicker } from '@/components/LeadPicker';
+import { queueBucket, currentTouchPoint, isOpenTouchPoint, stepLabel } from '@/lib/workflow';
+import type { Lead, EmailTemplate } from '@/types';
 
 export function EmailCenter() {
   const { state, dispatch } = useStore();
   const currentUser = state.users.find(u => u.id === state.currentUserId)!;
   const [search, setSearch] = useState('');
   const [showSend, setShowSend] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
 
   const isAgent = currentUser.role === 'agent';
   const isManager = currentUser.role === 'team_leader' || currentUser.role === 'operation_manager';
@@ -42,22 +45,41 @@ export function EmailCenter() {
 
   const templates = state.emailTemplates;
 
+  // Optional shortcut: the agent's leads whose CURRENT step is an email that is due today (or overdue)
+  const emailStepLeads = useMemo(() => state.leads.filter(l => {
+    if (l.agentId !== currentUser.id || l.removedFromQueue || l.stopped) return false;
+    const tp = currentTouchPoint(l);
+    return !!tp && tp.type === 'email' && isOpenTouchPoint(tp) && queueBucket(l) === 'today';
+  }), [state.leads, currentUser.id]);
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Email Center</h2>
           <p className="text-sm text-slate-500">
-            {isManager ? 'Send custom emails and track history' : 'Send templated emails and track history'}
+            {isManager ? 'Send custom emails and track history' : 'Write your own emails (templates are optional) and track history'}
           </p>
         </div>
-        <button
-          onClick={() => setShowSend(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all flex items-center gap-1.5"
-        >
-          {isManager ? <PenSquare className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-          {isManager ? 'Compose Email' : 'New Email'}
-        </button>
+        <div className="flex items-center gap-2">
+          {isAgent && (
+            <button
+              onClick={() => setShowBulk(true)}
+              className="px-4 py-2 bg-white text-teal-700 border border-teal-200 rounded-lg text-sm font-medium hover:bg-teal-50 transition-all flex items-center gap-1.5"
+            >
+              <Users className="w-3.5 h-3.5" />
+              Email step leads
+              <span className="text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full">{emailStepLeads.length}</span>
+            </button>
+          )}
+          <button
+            onClick={() => setShowSend(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all flex items-center gap-1.5"
+          >
+            <PenSquare className="w-3.5 h-3.5" />
+            {isManager ? 'Compose Email' : 'Write Email'}
+          </button>
+        </div>
       </div>
 
       {isAgent && (
@@ -115,6 +137,11 @@ export function EmailCenter() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-slate-900">{log.subject}</span>
                     <span className="text-xs text-slate-400">→ {log.to}</span>
+                    {log.auto && (
+                      <span className="text-xs px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded-full font-medium">
+                        Auto · {log.templateType === 'discovery' ? 'Discovery' : 'No Response'}
+                      </span>
+                    )}
                     {log.templateType === 'custom' && (
                       <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full font-medium">Custom</span>
                     )}
@@ -142,6 +169,18 @@ export function EmailCenter() {
               senderName: currentUser.name,
             }));
             setShowSend(false);
+          }}
+        />
+      )}
+
+      {showBulk && isAgent && (
+        <BulkEmailModal
+          leads={emailStepLeads}
+          templates={templates}
+          onClose={() => setShowBulk(false)}
+          onSend={(leadIds, subject, body) => {
+            dispatch(bulkEmail({ leadIds, subject, body, senderId: currentUser.id, senderName: currentUser.name }));
+            setShowBulk(false);
           }}
         />
       )}
@@ -249,8 +288,8 @@ function CustomEmailModal({
 function TemplatedEmailModal({
   leads, templates, onClose, onSend,
 }: {
-  leads: import('@/types').Lead[];
-  templates: import('@/types').EmailTemplate[];
+  leads: Lead[];
+  templates: EmailTemplate[];
   onClose: () => void;
   onSend: (to: string, subject: string, body: string, leadId?: string) => void;
 }) {
@@ -346,6 +385,135 @@ function TemplatedEmailModal({
           >
             <Send className="w-3.5 h-3.5" />
             Send Email
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Optional shortcut (the main way to email is still writing it by hand).
+ * Lists the agent's leads whose current step is a due EMAIL; the agent can send to all of them or pick some.
+ * Sending marks that email step complete for every selected lead.
+ */
+function BulkEmailModal({
+  leads, templates, onClose, onSend,
+}: {
+  leads: Lead[];
+  templates: EmailTemplate[];
+  onClose: () => void;
+  onSend: (leadIds: string[], subject: string, body: string) => void;
+}) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [templateId, setTemplateId] = useState('');
+
+  const allSelected = leads.length > 0 && selected.length === leads.length;
+  const toggle = (id: string) => setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  const withoutEmail = leads.filter(l => selected.includes(l.id) && !l.email).length;
+
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    const t = templates.find(x => x.id === id);
+    if (t) { setSubject(t.subject); setBody(t.body); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-slide-up max-h-[90vh] overflow-y-auto scrollbar-thin">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Email step leads</h2>
+            <p className="text-sm text-slate-500">Leads whose current step is an email due today</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {leads.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-6">No leads are waiting on an email step right now.</p>
+          ) : (
+            <>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-700">
+                    Leads <span className="text-xs text-slate-400 font-normal">({selected.length}/{leads.length})</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(allSelected ? [] : leads.map(l => l.id))}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    {allSelected ? 'Clear all' : 'Select all'}
+                  </button>
+                </div>
+                <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin border border-slate-200 rounded-xl p-2">
+                  {leads.map(l => {
+                    const tp = currentTouchPoint(l);
+                    return (
+                      <label key={l.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" checked={selected.includes(l.id)} onChange={() => toggle(l.id)} className="rounded" />
+                        <span className="text-xs font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{l.leadCode}</span>
+                        <span className="text-sm text-slate-700 truncate flex-1">{l.companyName}</span>
+                        {tp && <span className="text-xs text-slate-400 shrink-0">{stepLabel(tp.order, tp.type)}</span>}
+                        {!l.email && <span className="text-xs text-red-500 shrink-0">no email</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Template (optional)</label>
+                <select
+                  value={templateId} onChange={e => applyTemplate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Write it myself...</option>
+                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Subject</label>
+                <input
+                  type="text" value={subject} onChange={e => setSubject(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Message</label>
+                <textarea
+                  value={body} onChange={e => setBody(e.target.value)} rows={7}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                <p className="text-xs text-slate-400 mt-1">[Name], [Company Name] and [Agent Name] are filled in for each lead.</p>
+              </div>
+
+              {withoutEmail > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {withoutEmail} selected lead{withoutEmail > 1 ? 's have' : ' has'} no email address saved.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button
+            onClick={() => onSend(selected, subject, body)}
+            disabled={selected.length === 0 || !subject.trim() || !body.trim()}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Send & Mark Complete ({selected.length})
           </button>
         </div>
       </div>

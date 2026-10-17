@@ -281,15 +281,18 @@ function CreateMeetingModal({
   const myTeam = state.teams.find(t => t.id === currentUser.teamId);
 
   const availableLeads = useMemo(() => {
-    if (isAgent) return state.leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue && !l.stopped);
-    if (isTL) return state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.stopped);
+    if (isAgent) return state.leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue && !l.stopped && !l.expiredAt);
+    if (isTL) return state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.stopped && !l.expiredAt);
     return [];
   }, [state.leads, currentUser, isAgent, isTL, myTeam]);
 
   const availableParticipants = useMemo(() => {
     if (isAgent) return [];
     if (isTL) return state.users.filter(u => myTeam?.agentIds.includes(u.id));
-    if (isOM) return state.users.filter(u => u.role === 'team_leader');
+    if (isOM) {
+      const myLeaderIds = state.teams.filter(t => t.managerId === currentUser.id).map(t => t.leaderId);
+      return state.users.filter(u => u.role === 'team_leader' && myLeaderIds.includes(u.id));
+    }
     return [];
   }, [state.users, currentUser, isTL, isOM, myTeam]);
 
@@ -334,6 +337,9 @@ function CreateMeetingModal({
     }
   };
 
+  const allSelected = availableParticipants.length > 0 && availableParticipants.every(p => participantIds.includes(p.id));
+  const toggleAll = () => setParticipantIds(allSelected ? [] : availableParticipants.map(p => p.id));
+
   const canCreate = isAgent ? !!leadId : participantIds.length > 0;
 
   return (
@@ -376,10 +382,22 @@ function CreateMeetingModal({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  <UsersIcon className="w-3.5 h-3.5 inline mr-1" />
-                  {isOM ? 'Select Team Leaders' : 'Select Agents'}
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-slate-700">
+                    <UsersIcon className="w-3.5 h-3.5 inline mr-1" />
+                    {isOM ? 'Select Team Leaders' : 'Select Agents'}
+                    <span className="text-xs text-slate-400 font-normal ml-1">({participantIds.length}/{availableParticipants.length})</span>
+                  </label>
+                  {availableParticipants.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={toggleAll}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      {allSelected ? 'Clear all' : isOM ? 'Select all team leaders' : 'Select all agents'}
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin border border-slate-200 rounded-xl p-2">
                   {availableParticipants.map(p => (
                     <label key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
@@ -477,6 +495,8 @@ function MeetingDetailModal({
   onUpdate: (updates: Partial<Meeting>) => void;
 }) {
   const config = STATUS_CONFIG[meeting.status];
+  // Only the person who created the meeting can update its status; everyone else just views it.
+  const canUpdate = meeting.createdBy === currentUser.id;
 
   const getDisplayParticipants = (m: Meeting): string => {
     if (m.type === 'lead_meeting' && m.companyName) return m.participantNames.join(', ');
@@ -530,6 +550,13 @@ function MeetingDetailModal({
             <span className={`text-sm px-3 py-1 rounded-full ${config.bg} ${config.color} font-medium`}>{config.label}</span>
           </div>
 
+          {!canUpdate && (
+            <div className="border-t border-slate-100 pt-4 text-xs text-slate-500">
+              Only the person who created this meeting can update its status.
+            </div>
+          )}
+
+          {canUpdate && (
           <div className="border-t border-slate-100 pt-4">
             <div className="text-xs text-slate-400 mb-2">Update Status</div>
             <div className="grid grid-cols-2 gap-2">
@@ -550,6 +577,7 @@ function MeetingDetailModal({
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -17,7 +17,7 @@
     /* Path alias — depth-invariant imports for src (@/foo === src/foo from any file) */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src-1/*"]
     },
 
     /* Linting */
@@ -26,5 +26,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src-1"]
 }

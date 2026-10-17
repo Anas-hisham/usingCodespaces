@@ -2,12 +2,12 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Inbox, Calendar, Users, Mail,
   Bell, ChevronDown, LogOut, TrendingUp, CheckCircle2,
-  AlertTriangle, UserCircle,
+  AlertTriangle, Trophy, BarChart3,
 } from 'lucide-react';
 import { useStore, readAllNotifications, readNotification } from '@/store';
 import type { User } from '@/types';
 
-export type Page = 'dashboard' | 'workqueue' | 'calendar' | 'leads' | 'updates' | 'tasks' | 'emails';
+export type Page = 'dashboard' | 'workqueue' | 'calendar' | 'leads' | 'updates' | 'tasks' | 'emails' | 'sales' | 'analytics';
 
 interface NavItem {
   id: Page;
@@ -16,6 +16,25 @@ interface NavItem {
   roles: User['role'][];
   badge?: number;
 }
+
+const ALL_ROLES: User['role'][] = ['operation_manager', 'team_leader', 'agent'];
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL_ROLES },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['operation_manager', 'team_leader'] },
+  { id: 'workqueue', label: 'Work Queue', icon: Inbox, roles: ['agent'] },
+  { id: 'calendar', label: 'Calendar', icon: Calendar, roles: ALL_ROLES },
+  { id: 'leads', label: 'Leads', icon: Users, roles: ['agent'] },
+  { id: 'sales', label: 'Sales', icon: Trophy, roles: [...ALL_ROLES, 'quality'] },
+  { id: 'updates', label: 'Team Updates', icon: Bell, roles: ALL_ROLES },
+  { id: 'tasks', label: 'Tasks', icon: CheckCircle2, roles: ALL_ROLES },
+  { id: 'emails', label: 'Email Center', icon: Mail, roles: ALL_ROLES },
+];
+
+/** The page a person lands on, and the fallback when the current page is not allowed for their role. */
+export const homePageFor = (role: User['role']): Page => (role === 'quality' ? 'sales' : 'dashboard');
+export const canOpenPage = (page: Page, role: User['role']) =>
+  NAV_ITEMS.some(i => i.id === page && i.roles.includes(role));
 
 export function Layout({
   children,
@@ -35,23 +54,18 @@ export function Layout({
   const currentUser = state.users.find(u => u.id === state.currentUserId);
   if (!currentUser) return null;
 
-  const unreadCount = state.notifications.filter(n => !n.read).length;
+  // a notification with a userId belongs to that person only
+  const myNotifications = state.notifications.filter(n => !n.userId || n.userId === currentUser.id);
+  const unreadCount = myNotifications.filter(n => !n.read).length;
 
-  const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['operation_manager', 'team_leader', 'agent'] },
-    { id: 'workqueue', label: 'Work Queue', icon: Inbox, roles: ['agent'] },
-    { id: 'calendar', label: 'Calendar', icon: Calendar, roles: ['operation_manager', 'team_leader', 'agent'] },
-    { id: 'leads', label: 'Leads', icon: Users, roles: ['agent'] },
-    { id: 'updates', label: 'Team Updates', icon: Bell, roles: ['operation_manager', 'team_leader', 'agent'] },
-    { id: 'tasks', label: 'Tasks', icon: CheckCircle2, roles: ['operation_manager', 'team_leader', 'agent'] },
-    { id: 'emails', label: 'Email Center', icon: Mail, roles: ['operation_manager', 'team_leader', 'agent'] },
-  ].filter((item): item is NavItem => item.roles.includes(currentUser.role));
+  const navItems = NAV_ITEMS.filter(item => item.roles.includes(currentUser.role));
 
   const roleLabel = (role: string) => {
     switch (role) {
       case 'operation_manager': return 'Operation Manager';
       case 'team_leader': return 'Team Leader';
       case 'agent': return 'Agent';
+      case 'quality': return 'Quality';
       default: return role;
     }
   };
@@ -61,6 +75,7 @@ export function Layout({
   const notifIcon = (type: string) => {
     switch (type) {
       case 'meeting': return Calendar;
+      case 'email': return Mail;
       case 'overdue': return AlertTriangle;
       case 'update': return Bell;
       case 'task': return CheckCircle2;
@@ -170,17 +185,19 @@ export function Layout({
                       </button>
                     </div>
                     <div className="max-h-80 overflow-y-auto scrollbar-thin">
-                      {state.notifications.length === 0 && (
+                      {myNotifications.length === 0 && (
                         <div className="px-4 py-8 text-center text-sm text-slate-400">No notifications</div>
                       )}
-                      {state.notifications.map(n => {
+                      {myNotifications.map(n => {
                         const Icon = notifIcon(n.type);
                         return (
                           <button
                             key={n.id}
                             onClick={() => {
                               dispatch(readNotification(n.id));
-                              if (n.leadId) onNavigate('workqueue');
+                              if (n.meetingId) onNavigate('calendar');
+                              else if (n.leadId) onNavigate('workqueue');
+                              setNotifOpen(false);
                             }}
                             className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 ${
                               !n.read ? 'bg-blue-50/40' : ''

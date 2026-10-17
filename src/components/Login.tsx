@@ -20,6 +20,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
       case 'operation_manager': return 'Operation Manager';
       case 'team_leader': return 'Team Leader';
       case 'agent': return 'Agent';
+      case 'quality': return 'Quality';
       default: return role;
     }
   };

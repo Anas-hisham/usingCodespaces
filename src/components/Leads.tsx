@@ -125,6 +125,9 @@ export function Leads() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.color}`}>{cfg.label}</span>
+                      {lead.expiredAt && (
+                        <span className="ml-1.5 text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Expired</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -247,7 +250,7 @@ export function Leads() {
               </div>
             </div>
 
-            {!selectedLead.removedFromQueue && (
+            {!selectedLead.removedFromQueue && !selectedLead.expiredAt && (
               <div className="px-6 py-4 border-t border-slate-100 flex gap-2">
                 {selectedLead.stopped ? (
                   <button

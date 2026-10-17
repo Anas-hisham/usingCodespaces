@@ -11,9 +11,9 @@ import {
 import type { Lead, TouchPoint, CallType, TouchPointType, Workflow, EmailTemplate } from '@/types';
 import { LeadPicker } from '@/components/LeadPicker';
 import {
-  queueCategory, highestCallType, dueInfo, isOpenTouchPoint, type QueueCategory,
+  queueCategory, dueInfo, isOpenTouchPoint, type QueueCategory,
   queueBucket, currentTouchPoint, becomesTodayAt, formatSpan, lastTouchAt,
-  campaignLabel, stepLabel,
+  campaignLabel, stepLabel, daysUntilExpiry,
 } from '@/lib/workflow';
 
 const STATUS_CONFIG = {
@@ -25,12 +25,13 @@ const STATUS_CONFIG = {
   arranged_meeting: { label: 'Meeting', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
 };
 
-// The categories a lead can sit in inside a touch point step. NVM-only leads are shown inside LVM.
-const CATEGORY_ORDER: QueueCategory[] = ['new', 'discovery', 'lvm', 'meeting'];
+// The categories a lead can sit in inside a touch point step. Each one is its own section.
+const CATEGORY_ORDER: QueueCategory[] = ['new', 'discovery', 'lvm', 'nvm', 'meeting'];
 const CATEGORY_CONFIG: Record<QueueCategory, { label: string; color: string; dot: string }> = {
   new: STATUS_CONFIG.new,
   discovery: STATUS_CONFIG.discovery,
   lvm: { ...STATUS_CONFIG.lvm, label: 'LVM' },
+  nvm: { ...STATUS_CONFIG.nvm, label: 'NVM' },
   meeting: STATUS_CONFIG.arranged_meeting,
 };
 
@@ -60,7 +61,7 @@ interface CampaignGroup {
   total: number;
 }
 
-const emptyByCategory = (): Record<QueueCategory, Lead[]> => ({ new: [], discovery: [], lvm: [], meeting: [] });
+const emptyByCategory = (): Record<QueueCategory, Lead[]> => ({ new: [], discovery: [], lvm: [], nvm: [], meeting: [] });
 
 /**
  * Campaign -> Today / Next / Stop.
@@ -138,7 +139,7 @@ export function WorkQueue() {
   const leadToDelete = leadById(deleteLeadId);
 
   const myLeads = useMemo(
-    () => state.leads.filter(l => !l.removedFromQueue && l.agentId === currentUser.id),
+    () => state.leads.filter(l => !l.removedFromQueue && !l.expiredAt && l.agentId === currentUser.id),
     [state.leads, currentUser.id],
   );
   const queue = useMemo(() => buildQueue(myLeads, state.workflows, now), [myLeads, state.workflows, now]);
@@ -525,9 +526,12 @@ function LeadRow({
   onDetails: (lead: Lead) => void;
 }) {
   const due = dueInfo(tp);
-  const best = highestCallType(lead);
-  const nvmOnly = best === 'nvm';
   const overdue = due.tone === 'overdue';
+  // 15-day rule: warn the agent when a lead is about to leave the queue
+  const daysLeft = lead.status === 'arranged_meeting' ? null : daysUntilExpiry(lead, now);
+  const expiring = daysLeft !== null && daysLeft <= 3;
+  // an email step with no address cannot be sent automatically
+  const missingEmail = !!tp && tp.type === 'email' && !lead.email;
 
   // Counting runs FORWARD from the last touch point the agent did - not down from the day the lead was assigned.
   const lastTouch = lastTouchAt(lead);
@@ -540,10 +544,21 @@ function LeadRow({
           <span className="text-xs font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{lead.leadCode}</span>
           <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span className="text-sm font-medium text-slate-900 truncate">{lead.companyName}</span>
-          {nvmOnly && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium shrink-0">NVM only</span>}
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
           <span className="flex items-center gap-1"><User className="w-3 h-3" />{lead.contactName}</span>
+          {expiring && (
+            <span className="flex items-center gap-1 text-amber-600 font-medium">
+              <Hourglass className="w-3 h-3" />
+              {daysLeft === 0 ? 'Leaves queue today' : `Leaves queue in ${daysLeft}d`}
+            </span>
+          )}
+          {missingEmail && (
+            <span className="flex items-center gap-1 text-red-600 font-medium">
+              <AlertCircle className="w-3 h-3" />
+              No email - can't auto-send
+            </span>
+          )}
           {tp && (
             <span className={`flex items-center gap-1 ${DUE_TONE[due.tone]}`}>
               {tp.type === 'call' ? <Phone className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
@@ -948,11 +963,18 @@ function EmailModal({
   onClose: () => void;
   onSend: (to: string, subject: string, body: string, templateType: 'discovery' | 'no_response' | 'custom') => void;
 }) {
-  const templateType = category === 'discovery' ? 'discovery' : 'no_response';
-  const template = templates.find(t => t.type === templateType);
+  // Writing the email by hand is the main way; a template is only an optional starting point.
+  const suggestedType = category === 'discovery' ? 'discovery' : 'no_response';
+  const [templateType, setTemplateType] = useState<'discovery' | 'no_response' | 'custom'>('custom');
   const [to, setTo] = useState(lead.email || '');
-  const [subject, setSubject] = useState(template?.subject || '');
-  const [body, setBody] = useState(template?.body || '');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+
+  const applyTemplate = (type: 'discovery' | 'no_response' | 'custom') => {
+    setTemplateType(type);
+    const t = templates.find(x => x.type === type);
+    if (type !== 'custom' && t) { setSubject(t.subject); setBody(t.body); }
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
@@ -961,7 +983,7 @@ function EmailModal({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Send Email</h2>
-            <p className="text-sm text-slate-500">{lead.companyName} — Template: {templateType === 'discovery' ? 'Discovery' : 'No Response'}</p>
+            <p className="text-sm text-slate-500">{lead.companyName} — {lead.contactName}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center">
             <XCircle className="w-4 h-4 text-slate-500" />
@@ -969,6 +991,21 @@ function EmailModal({
         </div>
 
         <div className="px-6 py-5 space-y-4">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-400">Start from:</span>
+            {([['custom', 'Blank'], [suggestedType, suggestedType === 'discovery' ? 'Discovery template' : 'No Response template']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => applyTemplate(val)}
+                className={`px-2.5 py-1 rounded-full font-medium transition-all ${
+                  templateType === val ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">To</label>
             <input

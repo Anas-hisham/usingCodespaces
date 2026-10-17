@@ -1,6 +1,6 @@
 import type {
   User, Team, Workflow, Lead, Meeting, TeamUpdate, Task,
-  EmailTemplate, EmailLog, Notification,
+  EmailTemplate, EmailLog, Notification, Sale,
 } from '@/types';
 
 export interface AppState {
@@ -15,6 +15,7 @@ export interface AppState {
   emailTemplates: EmailTemplate[];
   emailLogs: EmailLog[];
   notifications: Notification[];
+  sales: Sale[];
 }
 
 export function createInitialState(): AppState {
@@ -26,6 +27,7 @@ export function createInitialState(): AppState {
     { id: 'u-a2', username: 'khaled.agent', name: 'Khaled Mostafa', email: 'khaled@company.com', role: 'agent', teamId: 't-1', initials: 'KM', color: '#ea580c', dailyCallTarget: 90 },
     { id: 'u-a3', username: 'nour.agent', name: 'Nour Ibrahim', email: 'nour@company.com', role: 'agent', teamId: 't-2', initials: 'NI', color: '#0284c7', dailyCallTarget: 90 },
     { id: 'u-a4', username: 'yousef.agent', name: 'Yousef Adel', email: 'yousef@company.com', role: 'agent', teamId: 't-2', initials: 'YA', color: '#16a34a', dailyCallTarget: 90 },
+    { id: 'u-q1', username: 'hana.quality', name: 'Hana Samy', email: 'hana@company.com', role: 'quality', initials: 'HS', color: '#7c3aed', dailyCallTarget: 0 },
   ];
 
   const teams: Team[] = [
@@ -60,6 +62,14 @@ export function createInitialState(): AppState {
   const day = (offset: number) => {
     const d = new Date(today);
     d.setDate(d.getDate() + offset);
+    return d.toISOString();
+  };
+
+  // Same as day() but at a given hour, so call-time analysis has realistic variety
+  const at = (offset: number, hour: number) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + offset);
+    d.setHours(hour, 0, 0, 0);
     return d.toISOString();
   };
 
@@ -170,6 +180,45 @@ export function createInitialState(): AppState {
       ],
       stopped: false, removedFromQueue: false, removedAt: null,
     },
+    {
+      id: 'l-9', leadCode: 'LD-009', campaignCode: 'ACT-001', companyName: 'Horus Logistics', contactName: 'Hany Salem', phone: '+20 107 678 9012', email: 'hany@horus.com',
+      status: 'discovery', agentId: 'u-a1', assignedAt: day(-9),
+      touchPoints: makeTouchPoints(workflows[0], 3),
+      currentTouchPoint: 3, callLogs: [
+        { id: 'cl-10', type: 'nvm', reason: 'no_answer', description: 'No answer.', timestamp: at(-9, 9), touchPointOrder: 0 },
+        { id: 'cl-11', type: 'discovery', reason: 'interested', description: 'Interested in the Silver plan, agreed to proceed.', timestamp: at(-7, 11), touchPointOrder: 2 },
+      ],
+      history: [
+        { id: 'h-10', action: 'assigned', timestamp: day(-9), userId: 'u-tl1', userName: 'Sara Mahmoud', detail: 'Assigned to Mona Ali' },
+      ],
+      stopped: false, removedFromQueue: false, removedAt: null,
+    },
+    {
+      id: 'l-10', leadCode: 'LD-010', campaignCode: 'RET-002', companyName: 'Giza Steel', contactName: 'Tamer Fouad', phone: '+20 108 789 0123', email: 'tamer@gizasteel.com',
+      status: 'discovery', agentId: 'u-a3', assignedAt: day(-12),
+      touchPoints: makeTouchPoints(workflows[1], 2),
+      currentTouchPoint: 2, callLogs: [
+        { id: 'cl-12', type: 'lvm', reason: 'voicemail', description: 'Spoke to the assistant, asked to call back after 2 pm.', timestamp: at(-11, 10), touchPointOrder: 0 },
+        { id: 'cl-13', type: 'discovery', reason: 'interested', description: 'Wants the annual renewal.', timestamp: at(-10, 14), touchPointOrder: 2 },
+      ],
+      history: [
+        { id: 'h-11', action: 'assigned', timestamp: day(-12), userId: 'u-tl2', userName: 'Omar Khaled', detail: 'Assigned to Nour Ibrahim' },
+      ],
+      stopped: false, removedFromQueue: false, removedAt: null,
+    },
+    {
+      id: 'l-11', leadCode: 'LD-011', campaignCode: 'ACT-001', companyName: 'Luxor Hotels', contactName: 'Rania Gamal', phone: '+20 109 890 1234', email: 'rania@luxorhotels.com',
+      status: 'discovery', agentId: 'u-a3', assignedAt: day(-8),
+      touchPoints: makeTouchPoints(workflows[0], 3),
+      currentTouchPoint: 3, callLogs: [
+        { id: 'cl-14', type: 'nvm', reason: 'no_answer', description: 'Nobody answered.', timestamp: at(-8, 15), touchPointOrder: 0 },
+        { id: 'cl-15', type: 'discovery', reason: 'price', description: 'Asked about the price, comparing offers.', timestamp: at(-6, 11), touchPointOrder: 2 },
+      ],
+      history: [
+        { id: 'h-12', action: 'assigned', timestamp: day(-8), userId: 'u-tl2', userName: 'Omar Khaled', detail: 'Assigned to Nour Ibrahim' },
+      ],
+      stopped: false, removedFromQueue: false, removedAt: null,
+    },
   ];
 
   const todayStr = today.toISOString().split('T')[0];
@@ -209,14 +258,32 @@ export function createInitialState(): AppState {
   ];
 
   const notifications: Notification[] = [
-    { id: 'n-1', type: 'meeting', title: 'Meeting in 15 minutes', message: 'Meeting with Jennifer Davis (Alexandria Pharma) at 15:00', timestamp: new Date().toISOString(), read: false, leadId: 'l-8' },
     { id: 'n-2', type: 'update', title: 'New team update', message: 'Sara Mahmoud posted: New Campaign Starting', timestamp: day(-1), read: false },
     { id: 'n-3', type: 'overdue', title: 'Overdue touch point', message: 'Pyramid Construction has an overdue call', timestamp: day(0), read: false, leadId: 'l-4' },
+  ];
+
+  // Sample sales, all inside the current month so the targets/progress show something right away
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const monthDay = (d: number) => `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(Math.min(d, today.getDate()))}`;
+  const mkSale = (n: number, agentId: string, leadId: string, leadName: string, saleType: Sale['saleType'], product: string, d: number): Sale => ({
+    id: `s-${n}`, agentId, leadId, leadName, saleType, product, date: monthDay(d), createdBy: 'u-q1', createdAt: new Date().toISOString(),
+  });
+  const sales: Sale[] = [
+    mkSale(1, 'u-a1', 'l-1', 'TechSphere Solutions', 'new', 'Activation Plan - Gold', 2),
+    mkSale(2, 'u-a1', 'l-2', 'GreenLeaf Trading', 'upsell', 'Extra Seats Pack', 4),
+    mkSale(3, 'u-a1', 'l-9', 'Horus Logistics', 'new', 'Activation Plan - Silver', 5),
+    mkSale(4, 'u-a2', 'l-3', 'Nile Valley Imports', 'renewal', 'Annual Renewal', 3),
+    mkSale(5, 'u-a2', 'l-4', 'Pyramid Construction', 'new', 'Activation Plan - Gold', 6),
+    mkSale(6, 'u-a3', 'l-5', 'Delta Food Industries', 'new', 'Retention Bundle', 2),
+    mkSale(7, 'u-a3', 'l-6', 'Cairo Digital Media', 'upsell', 'Premium Support', 3),
+    mkSale(8, 'u-a3', 'l-10', 'Giza Steel', 'renewal', 'Annual Renewal', 7),
+    mkSale(9, 'u-a3', 'l-11', 'Luxor Hotels', 'new', 'Activation Plan - Gold', 8),
+    mkSale(10, 'u-a4', 'l-8', 'Alexandria Pharma', 'new', 'Activation Plan - Silver', 5),
   ];
 
   return {
     currentUserId: '',
     users, teams, workflows, leads, meetings, updates, tasks,
-    emailTemplates, emailLogs, notifications,
+    emailTemplates, emailLogs, notifications, sales,
   };
 }

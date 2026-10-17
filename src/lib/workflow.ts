@@ -1,4 +1,15 @@
-import type { CallType, Lead, TouchPoint, Workflow } from '@/types';
+import type { CallType, Lead, TouchPoint, Workflow, Meeting } from '@/types';
+
+// ---------------------------------------------------------------------------
+// Rules agreed with the project owner
+// ---------------------------------------------------------------------------
+/** A lead that makes no progress (same touch point, or stopped) for this many CALENDAR days leaves the agent's queue. */
+export const LEAD_EXPIRY_DAYS = 15;
+/** Reminder before an arranged meeting. */
+export const MEETING_REMINDER_MINUTES = 15;
+/** When an EMAIL touch point comes due the system sends it by itself (Discovery or No Response template). Set false to turn it off. */
+export const AUTO_EMAIL_ENABLED = true;
+
 
 /** A touch point still waiting for the agent (not done, not skipped). */
 export const isOpenTouchPoint = (tp: TouchPoint) => tp.status === 'pending' || tp.status === 'overdue';
@@ -20,28 +31,62 @@ export function highestCallType(lead: Lead): CallType | null {
   return best;
 }
 
+/** Best result so far. A lead that got a meeting arranged was reached, so it counts as Discovery. */
+export function effectiveCallType(lead: Lead): CallType | null {
+  return lead.discoveryReached ? 'discovery' : highestCallType(lead);
+}
+
 /**
- * Category used by the work queue.
+ * Category used by the work queue (each one is its own section).
  *   no calls yet                -> new
- *   highest call = discovery    -> discovery   (even if there is also an LVM)
- *   highest call = lvm          -> lvm
- *   only NVM calls              -> lvm         (NVM is shown inside the LVM category)
- *   meeting arranged            -> meeting
+ *   best result = discovery     -> discovery   (even if there is also an LVM)
+ *   best result = lvm           -> lvm
+ *   only NVM calls              -> nvm
+ *   meeting arranged            -> meeting     (until the meeting day ends)
  */
-export type QueueCategory = 'new' | 'discovery' | 'lvm' | 'meeting';
+export type QueueCategory = 'new' | 'discovery' | 'lvm' | 'nvm' | 'meeting';
 
 export function queueCategory(lead: Lead): QueueCategory {
   if (lead.status === 'arranged_meeting') return 'meeting';
-  const best = highestCallType(lead);
-  if (!best) return 'new';
-  return best === 'discovery' ? 'discovery' : 'lvm';
+  return effectiveCallType(lead) ?? 'new';
 }
 
 /** The status stored on the lead after a call (never overrides an arranged meeting). */
 export function statusFromCalls(lead: Lead): Lead['status'] {
   if (lead.status === 'arranged_meeting') return lead.status;
-  return highestCallType(lead) ?? 'new';
+  return effectiveCallType(lead) ?? 'new';
 }
+
+// ---------------------------------------------------------------------------
+// 15-day rule
+// ---------------------------------------------------------------------------
+/** The moment the 15 days are counted from: the latest of assignment, last completed touch point, stop/resume. */
+export function expiryReferenceMs(lead: Lead): number {
+  const stamps = [lead.assignedAt, lead.lastActivityAt]
+    .filter((x): x is string => !!x).map(x => new Date(x).getTime());
+  for (const tp of lead.touchPoints) if (tp.status === 'completed' && tp.completedAt) stamps.push(new Date(tp.completedAt).getTime());
+  return Math.max(...stamps.filter(n => !isNaN(n)));
+}
+
+/** Whole days left before the lead leaves the queue (0 = today). */
+export const daysUntilExpiry = (lead: Lead, now: number = Date.now()) =>
+  Math.max(0, Math.ceil((expiryReferenceMs(lead) + LEAD_EXPIRY_DAYS * 86400000 - now) / 86400000));
+
+// ---------------------------------------------------------------------------
+// Meetings / templates helpers
+// ---------------------------------------------------------------------------
+/** Local YYYY-MM-DD (matches what the date input stores in Meeting.date). */
+export const localDay = (d: Date | number = Date.now()) => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
+export const meetingStartMs = (m: Pick<Meeting, 'date' | 'time'>) => new Date(`${m.date}T${m.time}:00`).getTime();
+
+/** Fills [Name], [Company Name] and [Agent Name] in an email template. */
+export const fillTemplate = (text: string, lead: Lead, agentName: string) => text
+  .replace(/\[Name\]/g, lead.contactName || 'there')
+  .replace(/\[Company Name\]/g, lead.companyName)
+  .replace(/\[Agent Name\]/g, agentName);
 
 /**
  * Finds the first open touch point and gives it a fresh due date.

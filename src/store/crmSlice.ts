@@ -1,10 +1,13 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type {
-  Lead, Meeting, TeamUpdate, Task, EmailLog, Notification, CallType,
+  Lead, Meeting, TeamUpdate, Task, EmailLog, Notification, CallType, Sale,
   TouchPoint, LeadHistoryEntry, LeadAssignment,
 } from '@/types';
 import { createInitialState, type AppState } from './seed';
-import { isOpenTouchPoint, scheduleNext, statusFromCalls } from '@/lib/workflow';
+import {
+  isOpenTouchPoint, scheduleNext, statusFromCalls, highestCallType, effectiveCallType, expiryReferenceMs,
+  fillTemplate, localDay, meetingStartMs, LEAD_EXPIRY_DAYS, MEETING_REMINDER_MINUTES, AUTO_EMAIL_ENABLED,
+} from '@/lib/workflow';
 
 const STORAGE_KEY = 'sales-mgmt-state-v3';
 
@@ -13,7 +16,18 @@ export function loadInitialState(): AppState {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (parsed.leads && parsed.users) return parsed;
+      if (parsed.leads && parsed.users) {
+        // Older saved data: add the Quality user and the sales list so nothing breaks after an upgrade.
+        const fresh = createInitialState();
+        if (!parsed.sales) parsed.sales = fresh.sales;
+        // Older sales had an optional leadId: link them by company name when possible (leadId is required now)
+        parsed.sales = parsed.sales.map((x: Sale) =>
+          x.leadId ? x : { ...x, leadId: parsed.leads.find((l: Lead) => l.companyName === x.leadName)?.id ?? '' });
+        if (!parsed.users.some((u: { role: string }) => u.role === 'quality')) {
+          parsed.users.push(...fresh.users.filter(u => u.role === 'quality'));
+        }
+        return parsed;
+      }
     }
   } catch { /* ignore */ }
   return createInitialState();
@@ -42,6 +56,117 @@ function historyEntry(
 }
 
 const findLead = (state: AppState, id: string) => state.leads.find(l => l.id === id);
+
+/** History row written by the scheduler (no logged-in user is acting). */
+function systemEntry(
+  lead: Lead, action: string, detail?: string,
+  tp?: Pick<TouchPoint, 'order' | 'label' | 'type'>, meta?: Record<string, unknown>,
+): LeadHistoryEntry {
+  return {
+    id: crypto.randomUUID(), action, timestamp: new Date().toISOString(),
+    userId: 'system', userName: 'System', detail,
+    round: lead.round ?? 1, agentId: lead.agentId,
+    ...(tp ? { touchPointOrder: tp.order, touchPointLabel: tp.label, touchPointType: tp.type } : {}),
+    ...(meta ? { meta } : {}),
+  };
+}
+
+/**
+ * A lead only stays in the "Meeting" section while it has an arranged meeting that is today or later.
+ * When the meeting day is over (or the meeting was completed / cancelled / no-show / rescheduled and there is no
+ * other one) the lead goes back to the Discovery queue. Safe to call repeatedly.
+ */
+function endMeetingStateIfNeeded(state: AppState, lead: Lead, reason: string, byUser: boolean) {
+  if (lead.status !== 'arranged_meeting') return;
+  const today = localDay();
+  const stillActive = state.meetings.some(m => m.leadId === lead.id && m.status === 'arranged' && m.date >= today);
+  if (stillActive) return;
+  lead.status = lead.discoveryReached ? 'discovery' : (highestCallType(lead) ?? 'new');
+  lead.lastActivityAt = new Date().toISOString();   // the 15-day count starts again from here
+  const detail = `${reason} - back in the Discovery queue`;
+  lead.history.push(byUser ? historyEntry(state, lead, 'meeting_ended', detail) : systemEntry(lead, 'meeting_ended', detail));
+}
+
+// ----- scheduler jobs (run every 30 s while the app is open; a real backend would run them as background jobs) -----
+function runMeetingDayEnd(state: AppState) {
+  for (const l of state.leads) {
+    if (l.status === 'arranged_meeting') endMeetingStateIfNeeded(state, l, 'Meeting day ended with no result', false);
+  }
+}
+
+/** 15-day rule: no progress (same touch point or stopped) for 15 calendar days -> out of the queue, TL reassigns. */
+function runExpiry(state: AppState, now: number) {
+  const today = localDay(now);
+  for (const l of state.leads) {
+    if (l.expiredAt || l.removedFromQueue) continue;
+    if (!l.stopped && !l.touchPoints.some(isOpenTouchPoint)) continue;                    // finished workflow
+    if (state.meetings.some(m => m.leadId === l.id && m.status === 'arranged' && m.date >= today)) continue; // paused by a meeting
+    if (now - expiryReferenceMs(l) < LEAD_EXPIRY_DAYS * 86400000) continue;
+    l.expiredAt = new Date(now).toISOString();
+    const agent = state.users.find(u => u.id === l.agentId);
+    l.history.push(systemEntry(l, 'expired_15_days', `No progress for ${LEAD_EXPIRY_DAYS} days - removed from ${agent?.name ?? 'the agent'}'s queue, waiting for the Team Leader to reassign`));
+  }
+}
+
+function runMeetingReminders(state: AppState, now: number) {
+  const nowIso = new Date(now).toISOString();
+  for (const m of state.meetings) {
+    if (m.status !== 'arranged' || m.reminderSentAt) continue;
+    const start = meetingStartMs(m);
+    if (isNaN(start) || now < start - MEETING_REMINDER_MINUTES * 60000) continue;
+    m.reminderSentAt = nowIso;                              // marked first, so it can never be sent twice
+    if (now >= start + m.duration * 60000) continue;        // the meeting is already over - no point notifying
+    const mins = Math.ceil((start - now) / 60000);
+    for (const userId of new Set([...m.participantIds, m.createdBy])) {
+      state.notifications.unshift({
+        id: crypto.randomUUID(), type: 'meeting',
+        title: mins > 0 ? `Meeting in ${mins} minute${mins === 1 ? '' : 's'}` : 'Meeting starting now',
+        message: `${m.title} at ${m.time}`,
+        timestamp: nowIso, read: false, leadId: m.leadId, meetingId: m.id, userId,
+      });
+    }
+  }
+}
+
+/**
+ * Email touch point came due -> the system sends it. Discovery template if the lead reached Discovery, otherwise
+ * the No Response template. A call step is never skipped: if the lead is waiting on a call, nothing is sent.
+ * No email address -> nothing is sent and the step stays open. (Sending is simulated: it is logged, not delivered.)
+ */
+function runAutoEmails(state: AppState, now: number) {
+  const nowIso = new Date(now).toISOString();
+  for (const l of state.leads) {
+    if (l.stopped || l.removedFromQueue || l.expiredAt || !l.email) continue;
+    const tp = l.touchPoints.find(t => t.order === l.currentTouchPoint);
+    if (!tp || tp.type !== 'email' || !isOpenTouchPoint(tp)) continue;
+    if (!tp.dueDate || new Date(tp.dueDate).getTime() > now) continue;
+
+    const key = `auto|${l.id}|${l.round ?? 1}|${tp.order}`;
+    if (state.emailLogs.some(e => e.idempotencyKey === key)) continue;
+
+    const type = effectiveCallType(l) === 'discovery' ? 'discovery' : 'no_response';
+    const tpl = state.emailTemplates.find(t => t.type === type);
+    if (!tpl) continue;
+    const agent = state.users.find(u => u.id === l.agentId);
+    const agentName = agent?.name ?? '';
+    const emailId = crypto.randomUUID();
+
+    state.emailLogs.unshift({
+      id: emailId, leadId: l.id, leadName: l.companyName, to: l.email,
+      subject: fillTemplate(tpl.subject, l, agentName), body: fillTemplate(tpl.body, l, agentName),
+      templateType: type, sentAt: nowIso, sentBy: l.agentId, sentByName: agentName,
+      auto: true, idempotencyKey: key,
+    });
+    tp.status = 'completed';
+    tp.completedAt = nowIso;
+    reschedule(l);
+    l.history.push(systemEntry(l, 'auto_email_sent', `${tpl.name} sent to ${l.email}`, tp, { emailLogId: emailId, templateType: type }));
+    state.notifications.unshift({
+      id: crypto.randomUUID(), type: 'email', title: 'Email sent automatically',
+      message: `${l.companyName}: ${tp.label}`, timestamp: nowIso, read: false, leadId: l.id, userId: l.agentId,
+    });
+  }
+}
 
 /**
  * After any change to touch points: point the lead at the first open touch point.
@@ -97,11 +222,13 @@ const slice = createSlice({
     stopLead(state, a: PayloadAction<string>) {
       const l = findLead(state, a.payload); if (!l) return;
       l.stopped = true;
+      l.lastActivityAt = new Date().toISOString();
       l.history.push(historyEntry(state, l, 'workflow_stopped'));
     },
     resumeLead(state, a: PayloadAction<string>) {
       const l = findLead(state, a.payload); if (!l) return;
       l.stopped = false;
+      l.lastActivityAt = new Date().toISOString();
       reschedule(l);
       l.history.push(historyEntry(state, l, 'workflow_resumed'));
     },
@@ -178,6 +305,9 @@ const slice = createSlice({
       l.removedFromQueue = false;
       l.removedAt = null;
       l.round = round + 1;
+      l.expiredAt = null;
+      l.discoveryReached = false;
+      l.lastActivityAt = now;
       l.previousAssignments = [...(l.previousAssignments ?? []), archived];
       l.history.push(historyEntry(
         state, l, 'transfer',
@@ -193,12 +323,23 @@ const slice = createSlice({
       const l = a.payload.leadId ? findLead(state, a.payload.leadId) : undefined;
       if (l) {
         l.status = 'arranged_meeting';
+        l.discoveryReached = true;   // arranging a meeting means the person was reached
         l.history.push(historyEntry(state, l, 'meeting_arranged', `${a.payload.date} at ${a.payload.time}`, undefined, { meetingId: a.payload.id }));
       }
     },
     updateMeeting(state, a: PayloadAction<{ meetingId: string; updates: Partial<Meeting> }>) {
       const m = state.meetings.find(x => x.id === a.payload.meetingId);
-      if (m) Object.assign(m, a.payload.updates);
+      if (!m) return;
+      // Only the person who created the meeting can change it. Invited people can see it but not update it.
+      if (m.createdBy !== state.currentUserId) return;
+      Object.assign(m, a.payload.updates);
+
+      const status = a.payload.updates.status;
+      const l = m.leadId ? findLead(state, m.leadId) : undefined;
+      if (l && status && status !== 'arranged') {
+        l.history.push(historyEntry(state, l, `meeting_${status}`, `${m.date} at ${m.time}`, undefined, { meetingId: m.id }));
+        endMeetingStateIfNeeded(state, l, `Meeting ${status.replace('_', ' ')}`, true);
+      }
     },
 
     // ---------- updates / tasks ----------
@@ -229,30 +370,43 @@ const slice = createSlice({
       l.history.push(historyEntry(state, l, 'email_sent', `Email sent to ${a.payload.email.to}`, tp, { emailLogId: a.payload.email.id, subject: a.payload.email.subject }));
     },
 
+    /**
+     * Optional shortcut for agents: send one email to many leads and mark their current EMAIL step complete.
+     * Only the lead's CURRENT step is completed (and only if it is an open email step), never later ones.
+     * [Name], [Company Name] and [Agent Name] in the subject/body are filled in per lead.
+     */
     bulkEmail(state, a: PayloadAction<{ leadIds: string[]; subject: string; body: string; senderId: string; senderName: string }>) {
-      const now = new Date();
+      const now = new Date().toISOString();
+      const fill = (text: string, l: Lead) => text
+        .replace(/\[Name\]/g, l.contactName)
+        .replace(/\[Company Name\]/g, l.companyName)
+        .replace(/\[Agent Name\]/g, a.payload.senderName);
+
       for (const id of a.payload.leadIds) {
-        const l = findLead(state, id); if (!l) continue;
-        l.touchPoints.forEach(tp => {
-          if (tp.type === 'email' && isOpenTouchPoint(tp) && tp.dueDate && new Date(tp.dueDate) <= now) {
-            tp.status = 'completed';
-            tp.completedAt = now.toISOString();
-          }
-        });
-        const next = l.touchPoints.find(isOpenTouchPoint);
-        l.currentTouchPoint = next ? next.order : -1;
-        l.history.push({
-          id: crypto.randomUUID(), action: 'bulk_email_sent', timestamp: now.toISOString(),
-          userId: state.currentUserId,
-          userName: state.users.find(u => u.id === state.currentUserId)?.name || '',
-        });
+        const l = findLead(state, id); if (!l || l.stopped) continue;
+        const tp = l.touchPoints.find(t => t.order === l.currentTouchPoint);
+        const subject = fill(a.payload.subject, l);
+        const emailId = crypto.randomUUID();
+
         state.emailLogs.unshift({
-          id: crypto.randomUUID(), leadId: id, leadName: l.companyName,
+          id: emailId, leadId: id, leadName: l.companyName,
           to: l.email || 'no-email@example.com',
-          subject: a.payload.subject, body: a.payload.body,
-          templateType: l.status === 'discovery' ? 'discovery' : 'no_response',
-          sentAt: now.toISOString(), sentBy: a.payload.senderId, sentByName: a.payload.senderName,
+          subject, body: fill(a.payload.body, l),
+          templateType: 'custom',
+          sentAt: now, sentBy: a.payload.senderId, sentByName: a.payload.senderName,
         });
+
+        let completed: TouchPoint | undefined;
+        if (tp && tp.type === 'email' && isOpenTouchPoint(tp)) {
+          tp.status = 'completed';
+          tp.completedAt = now;
+          completed = tp;
+          reschedule(l);
+        }
+        l.history.push(historyEntry(
+          state, l, 'bulk_email_sent', `Email sent to ${l.email}`, completed ?? undefined,
+          { emailLogId: emailId, subject },
+        ));
       }
     },
 
@@ -262,6 +416,28 @@ const slice = createSlice({
         subject: a.payload.subject, body: a.payload.body, templateType: 'custom',
         sentAt: new Date().toISOString(), sentBy: a.payload.senderId, sentByName: a.payload.senderName,
       });
+    },
+
+    // ---------- sales (Quality only) ----------
+    addSale(state, a: PayloadAction<Sale>) {
+      if (state.users.find(u => u.id === state.currentUserId)?.role !== 'quality') return;
+      // A sale must belong to a real lead: the lead (not the company name) is what identifies it
+      const lead = state.leads.find(l => l.id === a.payload.leadId);
+      if (!lead) return;
+      state.sales.unshift({ ...a.payload, leadName: lead.companyName });
+    },
+    deleteSale(state, a: PayloadAction<string>) {
+      if (state.users.find(u => u.id === state.currentUserId)?.role !== 'quality') return;
+      state.sales = state.sales.filter(x => x.id !== a.payload);
+    },
+
+    // ---------- scheduler ----------
+    tickScheduler(state) {
+      const now = Date.now();
+      runMeetingDayEnd(state);
+      runExpiry(state, now);
+      runMeetingReminders(state, now);
+      if (AUTO_EMAIL_ENABLED) runAutoEmails(state, now);
     },
 
     // ---------- notifications ----------
@@ -282,7 +458,7 @@ export const {
   stopLead, resumeLead, removeLead, deleteLead,
   addLead, addBulkLeads, addCallLog, editCallLog, transferLead,
   addMeeting, updateMeeting, addUpdate, ackUpdate, addTask, toggleTask,
-  sendEmail, bulkEmail, sendCustomEmail,
+  sendEmail, bulkEmail, sendCustomEmail, addSale, deleteSale, tickScheduler,
   readNotification, readAllNotifications, addNotification, reset,
 } = slice.actions;
 export default slice.reducer;

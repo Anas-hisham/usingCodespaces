@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
 import {
-  Users, AlertCircle, Calendar, TrendingUp, Clock,
-  CheckCircle2, Mail, Phone, Target, ArrowRight,
-  PhoneOutgoing, Voicemail, UserCheck, BarChart3,
+  Users, Calendar, Mail, Phone, Target, Trophy,
+  PhoneOutgoing, Voicemail, UserCheck,
 } from 'lucide-react';
-import { useStore } from '@/store';
-import type { User, Lead, CallType } from '@/types';
+import { useState } from 'react';
+import { useStore, transferLead } from '@/store';
+import { currentMonthKey } from '@/lib/sales';
+import type { User, Lead, Meeting } from '@/types';
 
 function isToday(dateStr: string) {
   return dateStr.split('T')[0] === new Date().toISOString().split('T')[0];
@@ -60,21 +60,53 @@ function CallBreakdown({ callLogs, todayOnly }: { callLogs: Lead['callLogs']; to
   );
 }
 
-function AgentDashboard({ currentUser, leads, meetings, emails }: {
+function TodayMeetingsCard({ meetings, users, title = "Today's Meetings" }: { meetings: Meeting[]; users: User[]; title?: string }) {
+  const sorted = [...meetings].sort((a, b) => a.time.localeCompare(b.time));
+  return (
+    <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-5">
+      <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-1.5">
+        <Calendar className="w-4 h-4" />
+        {title} ({sorted.length})
+      </h3>
+      {sorted.length === 0 ? (
+        <p className="text-sm text-slate-400">No meetings today.</p>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map(m => {
+            const agent = users.find(u => u.id === m.agentId);
+            const who = m.type === 'lead_meeting'
+              ? [m.companyName, agent?.name].filter(Boolean).join(' • ')
+              : m.participantNames.join(', ');
+            return (
+              <div key={m.id} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-blue-100">
+                <div className="w-14 text-center shrink-0">
+                  <div className="text-sm font-bold text-blue-700">{m.time}</div>
+                  <div className="text-[10px] text-slate-400">{m.duration}min</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-slate-900 truncate">{m.title}</div>
+                  {who && <div className="text-xs text-slate-500 truncate">{who}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgentDashboard({ currentUser, leads, meetings, emails, users, salesThisMonth }: {
   currentUser: User; leads: Lead[]; meetings: ReturnType<typeof useStore>['state']['meetings']; emails: ReturnType<typeof useStore>['state']['emailLogs'];
+  users: User[]; salesThisMonth: number;
 }) {
-  const myLeads = leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue);
+  const myLeads = leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue && !l.expiredAt);
   const allMyCallLogs = myLeads.flatMap(l => l.callLogs);
   const todayCalls = countTodayCalls(allMyCallLogs);
   const myEmails = emails.filter(e => e.sentBy === currentUser.id);
   const todayEmails = myEmails.filter(e => isToday(e.sentAt));
   const myMeetings = meetings.filter(m => m.participantIds.includes(currentUser.id) && m.status === 'arranged');
   const todayMeetings = myMeetings.filter(m => isToday(m.date));
-  const overdueLeads = myLeads.filter(l => {
-    if (l.stopped) return false;
-    const tp = l.touchPoints.find(t => t.order === l.currentTouchPoint);
-    return tp && tp.status !== 'completed' && tp.dueDate && new Date(tp.dueDate) < new Date();
-  });
   const target = currentUser.dailyCallTarget;
   const progressPct = target > 0 ? Math.min((todayCalls.total / target) * 100, 100) : 0;
 
@@ -86,6 +118,8 @@ function AgentDashboard({ currentUser, leads, meetings, emails }: {
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
+
+      <TodayMeetingsCard meetings={todayMeetings} users={users} />
 
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <div className="flex items-center justify-between mb-3">
@@ -113,64 +147,55 @@ function AgentDashboard({ currentUser, leads, meetings, emails }: {
         <StatCard label="Emails Sent Today" value={todayEmails.length} icon={Mail} color="text-teal-600 bg-teal-50" />
         <StatCard label="Meetings Today" value={todayMeetings.length} icon={Calendar} color="text-green-600 bg-green-50" />
         <StatCard label="Active Leads" value={myLeads.filter(l => !l.stopped).length} icon={Users} color="text-blue-600 bg-blue-50" />
-        <StatCard label="Overdue" value={overdueLeads.length} icon={AlertCircle} color="text-red-600 bg-red-50" />
+        <StatCard label="Sales This Month" value={salesThisMonth} icon={Trophy} color="text-amber-600 bg-amber-50" />
       </div>
 
-      {todayMeetings.length > 0 && (
-        <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-5">
-          <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-1.5">
-            <Calendar className="w-4 h-4" />
-            Today's Meetings ({todayMeetings.length})
-          </h3>
-          <div className="space-y-2">
-            {todayMeetings.map(m => (
-              <div key={m.id} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-blue-100">
-                <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-900">{m.title}</div>
-                  <div className="text-xs text-slate-500">{m.time} • {m.duration}min</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {overdueLeads.length > 0 && (
-        <div className="bg-red-50/50 rounded-xl border border-red-100 p-5">
-          <h3 className="text-sm font-semibold text-red-900 mb-3 flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" />
-            Overdue Touch Points ({overdueLeads.length})
-          </h3>
-          <div className="space-y-2">
-            {overdueLeads.slice(0, 5).map(l => (
-              <div key={l.id} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-red-100">
-                <Clock className="w-4 h-4 text-red-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-900">{l.leadCode} — {l.companyName}</div>
-                  <div className="text-xs text-slate-500">{l.touchPoints.find(t => t.order === l.currentTouchPoint)?.label}</div>
-                </div>
-                <span className="text-xs text-red-600 font-medium">
-                  {(() => { const tp = l.touchPoints.find(t => t.order === l.currentTouchPoint); return tp?.dueDate ? new Date(tp.dueDate).toLocaleDateString() : '—'; })()}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-function TeamLeaderDashboard({ currentUser, state }: {
-  currentUser: User; state: ReturnType<typeof useStore>['state'];
+function ReassignRow({ lead, agents, ownerName, onReassign }: {
+  lead: Lead; agents: User[]; ownerName: string; onReassign: (agentId: string) => void;
+}) {
+  const options = agents.filter(a => a.id !== lead.agentId);
+  const [target, setTarget] = useState(options[0]?.id ?? '');
+  return (
+    <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-red-100">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-slate-900 truncate">{lead.leadCode} — {lead.companyName}</div>
+        <div className="text-xs text-slate-500">
+          With {ownerName} • left the queue {lead.expiredAt ? new Date(lead.expiredAt).toLocaleDateString() : ''}
+        </div>
+      </div>
+      <select
+        value={target} onChange={e => setTarget(e.target.value)}
+        className="px-2 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+      >
+        {options.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+      </select>
+      <button
+        onClick={() => target && onReassign(target)}
+        disabled={!target}
+        className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
+      >
+        Reassign
+      </button>
+    </div>
+  );
+}
+
+function TeamLeaderDashboard({ currentUser, state, dispatch }: {
+  currentUser: User; state: ReturnType<typeof useStore>['state']; dispatch: ReturnType<typeof useStore>['dispatch'];
 }) {
   const myTeam = state.teams.find(t => t.id === currentUser.teamId);
   const teamAgents = state.users.filter(u => myTeam?.agentIds.includes(u.id));
-  const teamLeads = state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue);
+  const teamLeads = state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.expiredAt);
+  const expiredLeads = state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !!l.expiredAt);
   const todayMeetings = state.meetings.filter(m =>
-    m.type === 'lead_meeting' && m.status === 'arranged' &&
-    isToday(m.date) && myTeam?.agentIds.includes(m.agentId || '')
+    m.status === 'arranged' && isToday(m.date) && (
+      (m.type === 'lead_meeting' && myTeam?.agentIds.includes(m.agentId || '')) ||
+      m.participantIds.includes(currentUser.id) || m.createdBy === currentUser.id
+    )
   );
 
   const agentStats = teamAgents.map(agent => {
@@ -181,12 +206,7 @@ function TeamLeaderDashboard({ currentUser, state }: {
     const agentMeetings = state.meetings.filter(m =>
       m.type === 'lead_meeting' && m.participantIds.includes(agent.id) && m.status === 'arranged' && isToday(m.date)
     );
-    const overdue = agentLeads.filter(l => {
-      if (l.stopped) return false;
-      const tp = l.touchPoints.find(t => t.order === l.currentTouchPoint);
-      return tp && tp.status !== 'completed' && tp.dueDate && new Date(tp.dueDate) < new Date();
-    });
-    return { agent, todayCalls, agentEmails, agentMeetings, overdue, activeLeads: agentLeads.filter(l => !l.stopped) };
+    return { agent, todayCalls, agentEmails, agentMeetings, activeLeads: agentLeads.filter(l => !l.stopped) };
   });
 
   return (
@@ -198,27 +218,20 @@ function TeamLeaderDashboard({ currentUser, state }: {
         </p>
       </div>
 
-      {todayMeetings.length > 0 && (
-        <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-5">
-          <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-1.5">
-            <Calendar className="w-4 h-4" />
-            Team Meetings Today ({todayMeetings.length})
-          </h3>
+      <TodayMeetingsCard meetings={todayMeetings} users={state.users} title="Team Meetings Today" />
+
+      {expiredLeads.length > 0 && (
+        <div className="bg-red-50/50 rounded-xl border border-red-100 p-5">
+          <h3 className="text-sm font-semibold text-red-900 mb-1">Needs reassignment ({expiredLeads.length})</h3>
+          <p className="text-xs text-slate-500 mb-3">No progress for 15 days. The new agent starts from touch point 1; the old history is kept.</p>
           <div className="space-y-2">
-            {todayMeetings.map(m => {
-              const agent = state.users.find(u => u.id === m.agentId);
-              return (
-                <div key={m.id} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-blue-100">
-                  <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-900">{m.title}</div>
-                    <div className="text-xs text-slate-500">
-                      {m.time} • {m.duration}min • Agent: {agent?.name || '—'}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {expiredLeads.map(l => (
+              <ReassignRow
+                key={l.id} lead={l} agents={teamAgents}
+                ownerName={state.users.find(u => u.id === l.agentId)?.name ?? '—'}
+                onReassign={agentId => dispatch(transferLead({ leadId: l.id, newAgentId: agentId }))}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -226,7 +239,7 @@ function TeamLeaderDashboard({ currentUser, state }: {
       <div>
         <h3 className="text-sm font-semibold text-slate-900 mb-3">Agent Performance — Today</h3>
         <div className="space-y-3">
-          {agentStats.map(({ agent, todayCalls, agentEmails, agentMeetings, overdue, activeLeads }) => {
+          {agentStats.map(({ agent, todayCalls, agentEmails, agentMeetings, activeLeads }) => {
             const target = agent.dailyCallTarget;
             const pct = target > 0 ? Math.min((todayCalls.total / target) * 100, 100) : 0;
             return (
@@ -239,9 +252,6 @@ function TeamLeaderDashboard({ currentUser, state }: {
                     <div className="text-sm font-medium text-slate-900">{agent.name}</div>
                     <div className="text-xs text-slate-500">@{agent.username} • {activeLeads.length} active leads</div>
                   </div>
-                  {overdue.length > 0 && (
-                    <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">{overdue.length} overdue</span>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -294,7 +304,7 @@ function OMDashboard({ state }: { state: ReturnType<typeof useStore>['state'] })
   const tlStats = teamLeaders.map(tl => {
     const team = state.teams.find(t => t.id === tl.teamId);
     const agents = state.users.filter(u => team?.agentIds.includes(u.id));
-    const teamLeads = state.leads.filter(l => team?.agentIds.includes(l.agentId) && !l.removedFromQueue);
+    const teamLeads = state.leads.filter(l => team?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.expiredAt);
     const allCalls = teamLeads.flatMap(l => l.callLogs);
     const todayCalls = countTodayCalls(allCalls);
     const teamTarget = agents.reduce((sum, a) => sum + a.dailyCallTarget, 0);
@@ -312,31 +322,7 @@ function OMDashboard({ state }: { state: ReturnType<typeof useStore>['state'] })
         </p>
       </div>
 
-      {todayMeetings.length > 0 && (
-        <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-5">
-          <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-1.5">
-            <Calendar className="w-4 h-4" />
-            Meetings Today ({todayMeetings.length})
-          </h3>
-          <div className="space-y-2">
-            {todayMeetings.map(m => {
-              const agent = state.users.find(u => u.id === m.agentId);
-              const team = state.teams.find(t => agent && t.agentIds.includes(agent.id));
-              return (
-                <div key={m.id} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-blue-100">
-                  <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-900">{m.title}</div>
-                    <div className="text-xs text-slate-500">
-                      {m.time} • {m.duration}min • {agent?.name || '—'} {team ? `(${team.name})` : ''}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <TodayMeetingsCard meetings={todayMeetings} users={state.users} title="Meetings Today" />
 
       <div>
         <h3 className="text-sm font-semibold text-slate-900 mb-3">Team Leader Performance — Today</h3>
@@ -399,13 +385,17 @@ function OMDashboard({ state }: { state: ReturnType<typeof useStore>['state'] })
 }
 
 export function Dashboard() {
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
   const currentUser = state.users.find(u => u.id === state.currentUserId)!;
 
   if (currentUser.role === 'agent') {
     return (
       <div className="p-6 max-w-5xl mx-auto">
-        <AgentDashboard currentUser={currentUser} leads={state.leads} meetings={state.meetings} emails={state.emailLogs} />
+        <AgentDashboard
+          currentUser={currentUser} leads={state.leads} meetings={state.meetings} emails={state.emailLogs}
+          users={state.users}
+          salesThisMonth={state.sales.filter(x => x.agentId === currentUser.id && x.date.startsWith(currentMonthKey())).length}
+        />
       </div>
     );
   }
@@ -413,7 +403,7 @@ export function Dashboard() {
   if (currentUser.role === 'team_leader') {
     return (
       <div className="p-6 max-w-5xl mx-auto">
-        <TeamLeaderDashboard currentUser={currentUser} state={state} />
+        <TeamLeaderDashboard currentUser={currentUser} state={state} dispatch={dispatch} />
       </div>
     );
   }

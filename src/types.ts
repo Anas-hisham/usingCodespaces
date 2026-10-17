@@ -1,4 +1,4 @@
-export type UserRole = 'operation_manager' | 'team_leader' | 'agent';
+export type UserRole = 'operation_manager' | 'team_leader' | 'agent' | 'quality';
 
 export interface User {
   id: string;
@@ -39,9 +39,14 @@ export interface Workflow {
   touchPoints: TouchPointTemplate[];
 }
 
+// Structured outcome reason for a call. Optional: when it is empty the analytics fall back to reading the comment text.
+export type CallReason =
+  | 'interested' | 'callback' | 'price' | 'timing' | 'not_interested' | 'wrong_contact' | 'no_answer' | 'voicemail' | 'other';
+
 export interface CallLog {
   id: string;
   type: CallType;
+  reason?: CallReason;
   description: string;
   timestamp: string;
   touchPointOrder: number;
@@ -111,6 +116,9 @@ export interface Lead {
   removedAt: string | null;
   round?: number;                          // current round, defaults to 1
   previousAssignments?: LeadAssignment[];  // archived rounds (old agents' touch points)
+  expiredAt?: string | null;               // set by the 15-day rule: out of the agent's queue, waiting for the TL to reassign
+  lastActivityAt?: string;                 // last time the lead was assigned / stopped / resumed / came back from a meeting
+  discoveryReached?: boolean;              // a meeting was arranged, so the person was reached (counts as Discovery)
 }
 
 export type MeetingStatus = 'arranged' | 'completed' | 'no_show' | 'cancelled' | 'rescheduled';
@@ -134,6 +142,7 @@ export interface Meeting {
   status: MeetingStatus;
   priority: 'high' | 'normal';
   createdBy: string;
+  reminderSentAt?: string | null;  // the 15-minute reminder was already sent (prevents duplicates)
 }
 
 export type UpdateAudience = 'all' | 'team_leaders' | 'specific_team';
@@ -181,14 +190,35 @@ export interface EmailLog {
   sentAt: string;
   sentBy: string;
   sentByName: string;
+  auto?: boolean;            // sent by the system when the email touch point came due
+  idempotencyKey?: string;   // the same touch point can never produce two automatic emails
 }
 
 export interface Notification {
   id: string;
-  type: 'meeting' | 'update' | 'task' | 'overdue';
+  type: 'meeting' | 'update' | 'task' | 'overdue' | 'email';
   title: string;
   message: string;
   timestamp: string;
   read: boolean;
   leadId?: string;
+  meetingId?: string;
+  userId?: string;   // when set, only this user sees the notification
+}
+
+// ---------------------------------------------------------------------------
+// Sales (recorded by the Quality role)
+// ---------------------------------------------------------------------------
+export type SaleType = 'new' | 'upsell' | 'renewal';
+
+export interface Sale {
+  id: string;
+  agentId: string;
+  leadId: string;         // REQUIRED: the lead is the identity of a sale (company names can repeat). Campaign is derived from it.
+  leadName: string;       // snapshot of the company name at the time of the sale (display only)
+  saleType: SaleType;
+  product: string;        // what the customer got
+  date: string;           // YYYY-MM-DD, the day the sale happened
+  createdBy: string;      // the quality user who recorded it
+  createdAt: string;
 }
