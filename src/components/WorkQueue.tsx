@@ -5,11 +5,12 @@ import {
   SkipForward, Undo2, Play, Trash2, PauseCircle, Sun, Hourglass,
 } from 'lucide-react';
 import {
-  useStore, markTouchpoint, skipTouchpoint, restoreTouchpoint, stopLead, resumeLead,
-  removeLead, deleteLead, addCallLog, sendEmail,
+  useStore, skipTouchpoint, restoreTouchpoint, stopLead, resumeLead,
+  removeLead, deleteLead, logCall, sendEmail,
 } from '@/store';
 import type { Lead, TouchPoint, CallType, TouchPointType, Workflow, EmailTemplate } from '@/types';
 import { LeadPicker } from '@/components/LeadPicker';
+import { useConfirm } from '@/components/ConfirmDialog';
 import {
   queueCategory, dueInfo, isOpenTouchPoint, type QueueCategory,
   queueBucket, currentTouchPoint, becomesTodayAt, formatSpan, lastTouchAt,
@@ -123,6 +124,11 @@ export function WorkQueue() {
   const [callLeadId, setCallLeadId] = useState<string | null>(null);
   const [emailLeadId, setEmailLeadId] = useState<string | null>(null);
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const { ask, dialog: confirmDialog } = useConfirm();
+  const askSkip = (lead: Lead, tp: TouchPoint) => ask(
+    { title: 'Skip this touch point?', message: <>Step <b>{stepLabel(tp.order, tp.type)}</b> ({tp.label}) for <b>{lead.companyName}</b> will be skipped and the lead moves to the next step. You can restore it later.</>, confirmLabel: 'Skip' },
+    () => dispatch(skipTouchpoint({ leadId: lead.id, order: tp.order })),
+  );
 
   // live clock: a lead moves from Next to Today by itself when its day arrives
   const [now, setNow] = useState(() => Date.now());
@@ -220,7 +226,7 @@ export function WorkQueue() {
                             bucket={bucket}
                             now={now}
                             onAction={handleMarkComplete}
-                            onSkip={(l, tp) => dispatch(skipTouchpoint({ leadId: l.id, order: tp.order }))}
+                            onSkip={askSkip}
                             onDetails={l => setSelectedLeadId(l.id)}
                           />
                         ))}
@@ -444,11 +450,17 @@ export function WorkQueue() {
           lead={selectedLead}
           onClose={() => setSelectedLeadId(null)}
           onMarkComplete={tp => handleMarkComplete(selectedLead, tp)}
-          onSkip={tp => dispatch(skipTouchpoint({ leadId: selectedLead.id, order: tp.order }))}
+          onSkip={tp => askSkip(selectedLead, tp)}
           onRestore={tp => dispatch(restoreTouchpoint({ leadId: selectedLead.id, order: tp.order }))}
-          onStop={() => dispatch(stopLead(selectedLead.id))}
+          onStop={() => ask(
+            { title: 'Stop this workflow?', message: <><b>{selectedLead.companyName}</b> leaves Today / Next and moves to Stop. You can resume it later.</>, confirmLabel: 'Stop workflow' },
+            () => dispatch(stopLead(selectedLead.id)),
+          )}
           onResume={() => dispatch(resumeLead(selectedLead.id))}
-          onRemove={() => { dispatch(removeLead(selectedLead.id)); setSelectedLeadId(null); }}
+          onRemove={() => ask(
+            { title: 'Remove from queue?', message: <><b>{selectedLead.companyName}</b> will be removed from your work queue.</>, confirmLabel: 'Remove', tone: 'danger' },
+            () => { dispatch(removeLead(selectedLead.id)); setSelectedLeadId(null); },
+          )}
           onDelete={() => setDeleteLeadId(selectedLead.id)}
           onScheduleMeeting={() => setSelectedLeadId(null)}
           agentName={state.users.find(u => u.id === selectedLead.agentId)?.name || ''}
@@ -462,11 +474,11 @@ export function WorkQueue() {
           onClose={() => setCallLeadId(null)}
           onSave={(type, description) => {
             const order = callLead.currentTouchPoint;
-            dispatch(addCallLog({
+            // one atomic action: the call log and the completed step can never get out of sync
+            dispatch(logCall({
               leadId: callLead.id,
-              log: { id: crypto.randomUUID(), type, description, timestamp: new Date().toISOString(), touchPointOrder: order },
+              log: { id: crypto.randomUUID(), type, description: description.trim(), timestamp: new Date().toISOString(), touchPointOrder: order },
             }));
-            dispatch(markTouchpoint({ leadId: callLead.id, order }));
             setCallLeadId(null);
           }}
         />
@@ -498,10 +510,13 @@ export function WorkQueue() {
         />
       )}
 
+      {confirmDialog}
+
       {/* Delete confirmation */}
       {leadToDelete && (
         <ConfirmDeleteModal
           lead={leadToDelete}
+          hasSales={state.sales.some(x => x.leadId === leadToDelete.id)}
           onCancel={() => setDeleteLeadId(null)}
           onConfirm={() => {
             dispatch(deleteLead(leadToDelete.id));
@@ -622,7 +637,7 @@ function LeadRow({
   );
 }
 
-function ConfirmDeleteModal({ lead, onCancel, onConfirm }: { lead: Lead; onCancel: () => void; onConfirm: () => void }) {
+function ConfirmDeleteModal({ lead, hasSales, onCancel, onConfirm }: { lead: Lead; hasSales: boolean; onCancel: () => void; onConfirm: () => void }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onCancel} />
@@ -635,9 +650,14 @@ function ConfirmDeleteModal({ lead, onCancel, onConfirm }: { lead: Lead; onCance
           <span className="font-medium text-slate-700">{lead.leadCode} — {lead.companyName}</span> will be deleted permanently
           with its call history and activity log. Its arranged meetings will be cancelled. This can’t be undone.
         </p>
+        {hasSales && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+            This lead has a recorded sale, so it can’t be deleted. Use “Remove from queue” instead — the sale and its history stay intact.
+          </p>
+        )}
         <div className="flex justify-end gap-2">
           <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700">Delete permanently</button>
+          <button onClick={onConfirm} disabled={hasSales} className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">Delete permanently</button>
         </div>
       </div>
     </div>

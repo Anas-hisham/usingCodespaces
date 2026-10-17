@@ -49,6 +49,7 @@ export interface CallLog {
   reason?: CallReason;
   description: string;
   timestamp: string;
+  editedAt?: string;   // set when the agent edits the log; `timestamp` stays the real time of the call
   touchPointOrder: number;
   // Filled automatically by the store so a log always says who/which step/which round
   agentId?: string;

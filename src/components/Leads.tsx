@@ -6,7 +6,9 @@ import {
 import { useStore, stopLead, resumeLead, addBulkLeads } from '@/store';
 import type { Lead, Workflow } from '@/types';
 import { LeadPicker } from '@/components/LeadPicker';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { campaignLabel } from '@/lib/workflow';
+import { parseLeadRows, type ExistingLead, type RejectedRow } from '@/lib/leadCodes';
 
 const STATUS_CONFIG = {
   new: { label: 'New', color: 'bg-slate-100 text-slate-700' },
@@ -22,7 +24,11 @@ export function Leads() {
   const currentUser = state.users.find(u => u.id === state.currentUserId)!;
   const [filterCampaign, setFilterCampaign] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  // keep only the id: the drawer always shows the live lead from the store (a copy would go stale after Stop / Resume)
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const selectedLead = selectedLeadId ? state.leads.find(l => l.id === selectedLeadId) ?? null : null;
+  const setSelectedLead = (l: Lead | null) => setSelectedLeadId(l?.id ?? null);
+  const { ask, dialog: confirmDialog } = useConfirm();
   const [showBulkAdd, setShowBulkAdd] = useState(false);
 
   const visibleLeads = useMemo(() => {
@@ -134,7 +140,7 @@ export function Leads() {
                         <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-blue-500 rounded-full transition-all"
-                            style={{ width: `${(completed / total) * 100}%` }}
+                            style={{ width: `${total ? (completed / total) * 100 : 0}%` }}
                           />
                         </div>
                         <span className="text-xs text-slate-500">{completed}/{total}</span>
@@ -262,7 +268,10 @@ export function Leads() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => { dispatch(stopLead(selectedLead.id)); setSelectedLead(null); }}
+                    onClick={() => ask(
+                      { title: 'Stop this workflow?', message: <><b>{selectedLead.companyName}</b> will stop moving through its touch points. You can resume it later.</>, confirmLabel: 'Stop workflow' },
+                      () => { dispatch(stopLead(selectedLead.id)); setSelectedLead(null); },
+                    )}
                     className="px-4 py-2 rounded-lg text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
                   >
                     <Ban className="w-3.5 h-3.5" />
@@ -275,14 +284,15 @@ export function Leads() {
         </div>
       )}
 
+      {confirmDialog}
+
       {showBulkAdd && (
         <BulkAddLeadsModal
           workflows={state.workflows}
+          existing={state.leads}
+          agentNameOf={id => state.users.find(u => u.id === id)?.name ?? ''}
           onClose={() => setShowBulkAdd(false)}
-          onAdd={(leads) => {
-            dispatch(addBulkLeads(leads));
-            setShowBulkAdd(false);
-          }}
+          onAdd={(leads) => dispatch(addBulkLeads(leads))}
           agentId={currentUser.id}
           agentName={currentUser.name}
         />
@@ -292,9 +302,11 @@ export function Leads() {
 }
 
 function BulkAddLeadsModal({
-  workflows, onClose, onAdd, agentId, agentName,
+  workflows, existing, agentNameOf, onClose, onAdd, agentId, agentName,
 }: {
   workflows: Workflow[];
+  existing: ExistingLead[];
+  agentNameOf: (agentId: string) => string;
   onClose: () => void;
   onAdd: (leads: Lead[]) => void;
   agentId: string;
@@ -302,63 +314,57 @@ function BulkAddLeadsModal({
 }) {
   const [campaignCode, setCampaignCode] = useState(workflows[0]?.campaignCode || '');
   const [rawText, setRawText] = useState('');
+  const [addedCount, setAddedCount] = useState(0);
+
+  // live check while typing: how many rows are good and exactly why the others are not
+  const parsed = useMemo(
+    () => parseLeadRows(rawText, existing, agentId, agentNameOf),
+    [rawText, existing, agentId, agentNameOf],
+  );
+  const rejected: RejectedRow[] = parsed.rejected;
 
   const handleAdd = () => {
     const wf = workflows.find(w => w.campaignCode === campaignCode);
-    if (!wf) return;
-
-    const lines = rawText.trim().split('\n').filter(l => l.trim());
-    const existingCodes = new Set<string>();
-    const leads: Lead[] = [];
+    if (!wf || parsed.accepted.length === 0) return;
     const now = new Date().toISOString();
 
-    for (const line of lines) {
-      const parts = line.split('\t').map(p => p.trim());
-      const leadCode = parts[0] || `LD-${Date.now()}-${leads.length}`;
-      if (existingCodes.has(leadCode)) continue;
-      existingCodes.add(leadCode);
-
-      const companyName = parts[1] || parts[0] || '';
-      const contactName = parts[2] || '';
-      const phone = parts[3] || '';
-      const email = parts[4] || '';
-
-      const touchPoints = wf.touchPoints.map(tp => ({
+    const leads: Lead[] = parsed.accepted.map(row => ({
+      id: crypto.randomUUID(),
+      leadCode: row.leadCode,
+      campaignCode,
+      companyName: row.companyName,
+      contactName: row.contactName,
+      phone: row.phone,
+      email: row.email,
+      status: 'new' as const,
+      agentId,
+      assignedAt: now,
+      touchPoints: wf.touchPoints.map(tp => ({
         ...tp,
         status: 'pending' as const,
         completedAt: null,
         dueDate: tp.order === 0 ? now : new Date(Date.now() + tp.dayOffset * 86400000).toISOString(),
-      }));
-
-      leads.push({
+      })),
+      currentTouchPoint: 0,
+      callLogs: [],
+      history: [{
         id: crypto.randomUUID(),
-        leadCode,
-        campaignCode,
-        companyName,
-        contactName,
-        phone,
-        email,
-        status: 'new',
-        agentId,
-        assignedAt: now,
-        touchPoints,
-        currentTouchPoint: 0,
-        callLogs: [],
-        history: [{
-          id: crypto.randomUUID(),
-          action: 'assigned',
-          timestamp: now,
-          userId: agentId,
-          userName: agentName,
-          detail: 'Lead created',
-        }],
-        stopped: false,
-        removedFromQueue: false,
-        removedAt: null,
-      });
-    }
+        action: 'assigned',
+        timestamp: now,
+        userId: agentId,
+        userName: agentName,
+        detail: 'Lead created',
+      }],
+      stopped: false,
+      removedFromQueue: false,
+      removedAt: null,
+    }));
 
-    if (leads.length > 0) onAdd(leads);
+    onAdd(leads);
+    setAddedCount(n => n + leads.length);
+    // Everything fine -> close. Otherwise keep ONLY the problem rows in the box, so the agent fixes them and tries again.
+    if (rejected.length === 0) onClose();
+    else setRawText(rejected.map(r => r.raw).join('\n'));
   };
 
   return (
@@ -395,17 +401,42 @@ function BulkAddLeadsModal({
               Paste lead rows (tab-separated)
             </label>
             <div className="text-xs text-slate-400 mb-2 bg-slate-50 rounded-lg p-2">
-              Format: Lead Code [Tab] Company Name [Tab] Contact Name [Tab] Phone [Tab] Email
+              Format: Lead ID [Tab] Company Name [Tab] Contact Name [Tab] Phone [Tab] Email
               <br />
-              One lead per line. Lead Code is the primary identifier.
+              Typing by hand? Just write the ID, a space, then the company name: <span className="font-mono">AB12 Nile Trading</span>
+              <br />
+              One lead per line. The lead ID must be letters and numbers only. An ID that already exists (with any agent) is rejected.
             </div>
             <textarea
               value={rawText}
               onChange={e => setRawText(e.target.value)}
-              placeholder={"LD-101\tTechCorp\tJohn Smith\t+20 100 111 2222\tjohn@techcorp.com\nLD-102\tDataSys\tJane Doe\t+20 101 333 4444\tjane@datasys.com"}
+              placeholder={"LD101\tTechCorp\tJohn Smith\t+20 100 111 2222\tjohn@techcorp.com\nLD102\tDataSys\tJane Doe\t+20 101 333 4444\tjane@datasys.com"}
               rows={8}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
+            {addedCount > 0 && (
+              <p className="mt-2 text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                {addedCount} lead{addedCount === 1 ? '' : 's'} added. The rows below need fixing before they can be added.
+              </p>
+            )}
+            {rawText.trim() && (
+              <div className="mt-2 text-xs space-y-1.5" aria-live="polite">
+                <p className="text-slate-600">
+                  <span className="font-medium text-green-700">{parsed.accepted.length} ready</span>
+                  {rejected.length > 0 && <span className="font-medium text-red-600"> · {rejected.length} with a problem</span>}
+                </p>
+                {rejected.length > 0 && (
+                  <ul className="max-h-32 overflow-y-auto scrollbar-thin rounded-lg bg-red-50 border border-red-100 divide-y divide-red-100">
+                    {rejected.slice(0, 50).map(r => (
+                      <li key={r.line} className="px-3 py-1.5 text-red-700">
+                        <span className="font-mono">Line {r.line}{r.leadCode ? ` · ${r.leadCode}` : ''}</span> — {r.reason}
+                      </li>
+                    ))}
+                    {rejected.length > 50 && <li className="px-3 py-1.5 text-red-600">…and {rejected.length - 50} more</li>}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -413,11 +444,11 @@ function BulkAddLeadsModal({
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
           <button
             onClick={handleAdd}
-            disabled={!rawText.trim()}
+            disabled={parsed.accepted.length === 0}
             className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition-all flex items-center gap-1.5"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Leads
+            {parsed.accepted.length > 0 ? `Add ${parsed.accepted.length} lead${parsed.accepted.length === 1 ? '' : 's'}` : 'Add Leads'}
           </button>
         </div>
       </div>

@@ -1,43 +1,82 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type {
-  Lead, Meeting, TeamUpdate, Task, EmailLog, Notification, CallType, Sale,
+  Lead, Meeting, TeamUpdate, Task, EmailLog, Notification, CallType, CallLog, Sale,
   TouchPoint, LeadHistoryEntry, LeadAssignment,
 } from '@/types';
 import { createInitialState, type AppState } from './seed';
 import { migrateSale } from '@/lib/sales';
+import { dropTakenLeadCodes, isValidEmail } from '@/lib/leadCodes';
 import {
   isOpenTouchPoint, scheduleNext, statusFromCalls, highestCallType, effectiveCallType, expiryReferenceMs,
   fillTemplate, localDay, meetingStartMs, LEAD_EXPIRY_DAYS, MEETING_REMINDER_MINUTES, AUTO_EMAIL_ENABLED,
 } from '@/lib/workflow';
 
-const STORAGE_KEY = 'sales-mgmt-state-v3';
+export const STORAGE_KEY = 'sales-mgmt-state-v3';
+
+const ARRAY_KEYS = [
+  'users', 'teams', 'workflows', 'leads', 'meetings', 'updates', 'tasks',
+  'emailTemplates', 'emailLogs', 'notifications', 'sales',
+] as const;
+
+/**
+ * Reads a saved state defensively. Returns null when the text is not a usable state (so the caller falls back to
+ * a fresh one instead of crashing). Missing lists are filled from the defaults, and old data is upgraded.
+ */
+export function parseStoredState(raw: string): AppState | null {
+  try {
+    const parsed = JSON.parse(raw) as Partial<AppState> | null;
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.leads) || !Array.isArray(parsed.users)) return null;
+    const fresh = createInitialState();
+    const state = { ...fresh, ...parsed } as AppState;
+    const bag = state as unknown as Record<string, unknown>;
+    for (const k of ARRAY_KEYS) if (!Array.isArray(bag[k])) bag[k] = fresh[k];
+    if (typeof state.currentUserId !== 'string') state.currentUserId = '';
+
+    // a lead missing one of its lists would crash every screen that reads it
+    state.leads = state.leads.map(l => ({
+      ...l,
+      touchPoints: l.touchPoints ?? [],
+      callLogs: l.callLogs ?? [],
+      history: l.history ?? [],
+    }));
+    // Older sales had an optional leadId: link them by company name when possible (leadId is required now)
+    state.sales = state.sales.map((x: Sale) =>
+      x.leadId ? x : { ...x, leadId: state.leads.find((l: Lead) => l.companyName === x.leadName)?.id ?? '' });
+    // Older sales had other sale types and a "what the customer got" text: convert them
+    state.sales = state.sales.map(migrateSale);
+    // Older saved data: add the Quality user so nothing breaks after an upgrade.
+    if (!state.users.some(u => u.role === 'quality')) state.users.push(...fresh.users.filter(u => u.role === 'quality'));
+    return state;
+  } catch {
+    return null;
+  }
+}
 
 export function loadInitialState(): AppState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.leads && parsed.users) {
-        // Older saved data: add the Quality user and the sales list so nothing breaks after an upgrade.
-        const fresh = createInitialState();
-        if (!parsed.sales) parsed.sales = fresh.sales;
-        // Older sales had an optional leadId: link them by company name when possible (leadId is required now)
-        parsed.sales = parsed.sales.map((x: Sale) =>
-          x.leadId ? x : { ...x, leadId: parsed.leads.find((l: Lead) => l.companyName === x.leadName)?.id ?? '' });
-        // Older sales had other sale types and a "what the customer got" text: convert them
-        parsed.sales = parsed.sales.map(migrateSale);
-        if (!parsed.users.some((u: { role: string }) => u.role === 'quality')) {
-          parsed.users.push(...fresh.users.filter(u => u.role === 'quality'));
-        }
-        return parsed;
-      }
+      const state = parseStoredState(stored);
+      if (state) return state;
+      // the saved text is damaged: keep a copy for recovery instead of silently overwriting it
+      try { localStorage.setItem(`${STORAGE_KEY}-corrupt-${Date.now()}`, stored); } catch { /* storage is full */ }
     }
-  } catch { /* ignore */ }
+  } catch { /* storage is blocked (private mode) - run in memory */ }
   return createInitialState();
 }
-export const persistState = (state: AppState) => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+
+/** Saves the state. Returns false when the browser refused (storage full / blocked) so the UI can warn the user. */
+export const persistState = (state: AppState): boolean => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); return true; }
+  catch (err) { console.error('Could not save the data to localStorage', err); return false; }
 };
+
+// ----- who may do what (the UI hides buttons, but the store must enforce it too) -----
+const actorOf = (state: AppState) => state.users.find(u => u.id === state.currentUserId);
+/** Workflow actions on a lead (calls, emails, skip, stop...) belong to the agent who owns the lead. */
+const isOwner = (state: AppState, lead: Lead) => !!state.currentUserId && lead.agentId === state.currentUserId;
+/** A lead the agent can still work on. */
+const isWorkable = (lead: Lead) => !lead.stopped && !lead.removedFromQueue && !lead.expiredAt;
 
 // Builds one history row: WHO, WHEN, which ROUND and (optionally) which touch point.
 function historyEntry(
@@ -185,16 +224,32 @@ function reschedule(lead: Lead) {
   lead.currentTouchPoint = next ? next.order : -1;
 }
 
+/** Writes the call log + history row. Shared by addCallLog and logCall so both always record the same things. */
+function appendCallLog(state: AppState, l: Lead, raw: CallLog): TouchPoint | undefined {
+  const tp = l.touchPoints.find(t => t.order === raw.touchPointOrder);
+  const actor = actorOf(state);
+  const log = { ...raw, agentId: state.currentUserId, agentName: actor?.name || '', touchPointLabel: tp?.label, round: l.round ?? 1 };
+  l.callLogs.push(log);
+  l.status = statusFromCalls(l);
+  l.history.push(historyEntry(state, l, 'call_logged', `${log.type.toUpperCase()}: ${log.description}`, tp, { callLogId: log.id, callType: log.type }));
+  return tp;
+}
+
 const slice = createSlice({
   name: 'crm',
   initialState: loadInitialState,
   reducers: {
     setUser(state, a: PayloadAction<string>) { state.currentUserId = a.payload; },
 
+    /** Another browser tab saved newer data: take it, but keep THIS tab's logged-in user. */
+    hydrate(state, a: PayloadAction<AppState>) { return { ...a.payload, currentUserId: state.currentUserId }; },
+
     // ---------- touch points ----------
     markTouchpoint(state, a: PayloadAction<{ leadId: string; order: number }>) {
-      const l = findLead(state, a.payload.leadId); if (!l) return;
-      const tp = l.touchPoints.find(t => t.order === a.payload.order); if (!tp) return;
+      const l = findLead(state, a.payload.leadId);
+      if (!l || !isOwner(state, l) || !isWorkable(l)) return;      // a stopped / expired lead cannot move forward
+      const tp = l.touchPoints.find(t => t.order === a.payload.order);
+      if (!tp || !isOpenTouchPoint(tp)) return;                      // a double click must not complete a step twice
       tp.status = 'completed';
       tp.completedAt = new Date().toISOString();
       reschedule(l);
@@ -202,7 +257,7 @@ const slice = createSlice({
     },
 
     skipTouchpoint(state, a: PayloadAction<{ leadId: string; order: number }>) {
-      const l = findLead(state, a.payload.leadId); if (!l) return;
+      const l = findLead(state, a.payload.leadId); if (!l || !isOwner(state, l)) return;
       const tp = l.touchPoints.find(t => t.order === a.payload.order);
       if (!tp || !isOpenTouchPoint(tp)) return;
       tp.status = 'skipped';
@@ -212,7 +267,7 @@ const slice = createSlice({
     },
 
     restoreTouchpoint(state, a: PayloadAction<{ leadId: string; order: number }>) {
-      const l = findLead(state, a.payload.leadId); if (!l) return;
+      const l = findLead(state, a.payload.leadId); if (!l || !isOwner(state, l)) return;
       const tp = l.touchPoints.find(t => t.order === a.payload.order);
       if (!tp || tp.status !== 'skipped') return;
       tp.status = 'pending';
@@ -223,25 +278,31 @@ const slice = createSlice({
 
     // ---------- workflow stop / resume / delete ----------
     stopLead(state, a: PayloadAction<string>) {
-      const l = findLead(state, a.payload); if (!l) return;
+      const l = findLead(state, a.payload); if (!l || !isOwner(state, l) || l.stopped) return;
       l.stopped = true;
       l.lastActivityAt = new Date().toISOString();
       l.history.push(historyEntry(state, l, 'workflow_stopped'));
     },
     resumeLead(state, a: PayloadAction<string>) {
-      const l = findLead(state, a.payload); if (!l) return;
+      const l = findLead(state, a.payload);
+      if (!l || !isOwner(state, l) || !l.stopped || l.expiredAt) return;   // an expired lead is brought back only by a transfer
       l.stopped = false;
       l.lastActivityAt = new Date().toISOString();
       reschedule(l);
       l.history.push(historyEntry(state, l, 'workflow_resumed'));
     },
     removeLead(state, a: PayloadAction<string>) {
-      const l = findLead(state, a.payload); if (!l) return;
+      const l = findLead(state, a.payload); if (!l || !isOwner(state, l) || l.removedFromQueue) return;
       l.removedFromQueue = true;
       l.removedAt = new Date().toISOString();
+      l.history.push(historyEntry(state, l, 'removed_from_queue'));
     },
     /** Permanently deletes the lead. Its arranged meetings are cancelled so the calendar has no dangling links. */
     deleteLead(state, a: PayloadAction<string>) {
+      const target = findLead(state, a.payload);
+      if (!target || !isOwner(state, target)) return;
+      // A recorded sale points at its lead: deleting the lead would leave the sale (and the reports) dangling.
+      if (state.sales.some(x => x.leadId === a.payload)) return;
       state.leads = state.leads.filter(l => l.id !== a.payload);
       state.meetings.forEach(m => {
         if (m.leadId === a.payload && m.status === 'arranged') m.status = 'cancelled';
@@ -249,36 +310,58 @@ const slice = createSlice({
     },
 
     // ---------- leads ----------
-    addLead(state, a: PayloadAction<Lead>) { state.leads.push(a.payload); },
-    addBulkLeads(state, a: PayloadAction<Lead[]>) { state.leads.unshift(...a.payload); },
+    // A lead code can belong to one agent only: a code that already exists (any agent) is ignored here.
+    addLead(state, a: PayloadAction<Lead>) {
+      const [ok] = dropTakenLeadCodes([a.payload], state.leads);
+      if (ok) state.leads.push(ok);
+    },
+    addBulkLeads(state, a: PayloadAction<Lead[]>) {
+      const ok = dropTakenLeadCodes(a.payload, state.leads);
+      if (ok.length) state.leads.unshift(...ok);
+    },
 
-    addCallLog(state, a: PayloadAction<{ leadId: string; log: Lead['callLogs'][0] }>) {
-      const l = findLead(state, a.payload.leadId); if (!l) return;
-      const { log: raw } = a.payload;
-      const tp = l.touchPoints.find(t => t.order === raw.touchPointOrder);
-      const actor = state.users.find(u => u.id === state.currentUserId);
-      const log = { ...raw, agentId: state.currentUserId, agentName: actor?.name || '', touchPointLabel: tp?.label, round: l.round ?? 1 };
-      l.callLogs.push(log);
-      l.status = statusFromCalls(l);
-      l.history.push(historyEntry(state, l, 'call_logged', `${log.type.toUpperCase()}: ${log.description}`, tp, { callLogId: log.id, callType: log.type }));
+    addCallLog(state, a: PayloadAction<{ leadId: string; log: CallLog }>) {
+      const l = findLead(state, a.payload.leadId);
+      if (!l || !isOwner(state, l) || !isWorkable(l)) return;
+      appendCallLog(state, l, a.payload.log);
+    },
+
+    /** Log a call AND complete its touch point in ONE step (so a failure can never leave a log without a completed step). */
+    logCall(state, a: PayloadAction<{ leadId: string; log: CallLog }>) {
+      const l = findLead(state, a.payload.leadId);
+      if (!l || !isOwner(state, l) || !isWorkable(l)) return;
+      const tp = l.touchPoints.find(t => t.order === a.payload.log.touchPointOrder);
+      if (!tp || tp.type !== 'call' || !isOpenTouchPoint(tp)) return;
+      appendCallLog(state, l, a.payload.log);
+      tp.status = 'completed';
+      tp.completedAt = new Date().toISOString();
+      reschedule(l);
+      l.history.push(historyEntry(state, l, 'mark_complete', `Touch point ${tp.order + 1} completed`, tp));
     },
 
     editCallLog(state, a: PayloadAction<{ leadId: string; logId: string; callType: CallType; description: string }>) {
-      const l = findLead(state, a.payload.leadId); if (!l) return;
+      const l = findLead(state, a.payload.leadId); if (!l || !isOwner(state, l)) return;
       const cl = l.callLogs.find(c => c.id === a.payload.logId); if (!cl) return;
+      const before = `${cl.type.toUpperCase()}: ${cl.description}`;
       cl.type = a.payload.callType;
       cl.description = a.payload.description;
-      cl.timestamp = new Date().toISOString();
+      cl.editedAt = new Date().toISOString();   // the original call time stays untouched (reports use it)
       l.status = statusFromCalls(l);
+      l.history.push(historyEntry(state, l, 'call_edited', `${before}  →  ${cl.type.toUpperCase()}: ${cl.description}`, undefined, { callLogId: cl.id }));
     },
 
     transferLead(state, a: PayloadAction<{ leadId: string; newAgentId: string }>) {
       const l = findLead(state, a.payload.leadId);
       if (!l || l.agentId === a.payload.newAgentId) return;
+      const actor = actorOf(state);
+      const newAgent = state.users.find(u => u.id === a.payload.newAgentId);
+      if (!actor || !newAgent || newAgent.role !== 'agent') return;     // a lead can only go to an agent
+      // only the Operation Manager, or the Team Leader of the agent who holds the lead, may reassign it
+      const allowed = actor.role === 'operation_manager'
+        || (actor.role === 'team_leader' && state.teams.some(t => t.leaderId === actor.id && t.agentIds.includes(l.agentId)));
+      if (!allowed) return;
       const wf = state.workflows.find(w => w.campaignCode === l.campaignCode);
       const oldAgent = state.users.find(u => u.id === l.agentId);
-      const newAgent = state.users.find(u => u.id === a.payload.newAgentId);
-      const actor = state.users.find(u => u.id === state.currentUserId);
       const now = new Date().toISOString();
       const round = l.round ?? 1;
 
@@ -361,11 +444,13 @@ const slice = createSlice({
 
     // ---------- emails ----------
     sendEmail(state, a: PayloadAction<{ email: EmailLog; leadId: string; touchPointOrder: number }>) {
-      state.emailLogs.unshift(a.payload.email);
-      const l = findLead(state, a.payload.leadId); if (!l) return;
+      const l = a.payload.leadId ? findLead(state, a.payload.leadId) : undefined;
+      if (a.payload.leadId && (!l || !isOwner(state, l))) return;       // an agent can only email for their own lead
+      state.emailLogs.unshift({ ...a.payload.email, sentBy: state.currentUserId || a.payload.email.sentBy });
+      if (!l) return;
       const tp = l.touchPoints.find(t => t.order === a.payload.touchPointOrder);
       // Only an open EMAIL touch point is completed; a free email (order -1) leaves the workflow alone.
-      if (tp && tp.type === 'email' && isOpenTouchPoint(tp)) {
+      if (tp && tp.type === 'email' && isOpenTouchPoint(tp) && isWorkable(l)) {
         tp.status = 'completed';
         tp.completedAt = new Date().toISOString();
         reschedule(l);
@@ -380,23 +465,22 @@ const slice = createSlice({
      */
     bulkEmail(state, a: PayloadAction<{ leadIds: string[]; subject: string; body: string; senderId: string; senderName: string }>) {
       const now = new Date().toISOString();
-      const fill = (text: string, l: Lead) => text
-        .replace(/\[Name\]/g, l.contactName)
-        .replace(/\[Company Name\]/g, l.companyName)
-        .replace(/\[Agent Name\]/g, a.payload.senderName);
+      const senderName = actorOf(state)?.name ?? a.payload.senderName;
 
-      for (const id of a.payload.leadIds) {
-        const l = findLead(state, id); if (!l || l.stopped) continue;
+      for (const id of new Set(a.payload.leadIds)) {
+        const l = findLead(state, id);
+        // never "send" to a lead that has no usable email, and never touch someone else's / a stopped lead
+        if (!l || !isOwner(state, l) || !isWorkable(l) || !isValidEmail(l.email || '')) continue;
         const tp = l.touchPoints.find(t => t.order === l.currentTouchPoint);
-        const subject = fill(a.payload.subject, l);
+        const subject = fillTemplate(a.payload.subject, l, senderName);
         const emailId = crypto.randomUUID();
 
         state.emailLogs.unshift({
           id: emailId, leadId: id, leadName: l.companyName,
-          to: l.email || 'no-email@example.com',
-          subject, body: fill(a.payload.body, l),
+          to: l.email,
+          subject, body: fillTemplate(a.payload.body, l, senderName),
           templateType: 'custom',
-          sentAt: now, sentBy: a.payload.senderId, sentByName: a.payload.senderName,
+          sentAt: now, sentBy: state.currentUserId, sentByName: senderName,
         });
 
         let completed: TouchPoint | undefined;
@@ -457,7 +541,7 @@ const slice = createSlice({
 
 export const crmActions = slice.actions;
 export const {
-  setUser, markTouchpoint, skipTouchpoint, restoreTouchpoint,
+  setUser, hydrate, logCall, markTouchpoint, skipTouchpoint, restoreTouchpoint,
   stopLead, resumeLead, removeLead, deleteLead,
   addLead, addBulkLeads, addCallLog, editCallLog, transferLead,
   addMeeting, updateMeeting, addUpdate, ackUpdate, addTask, toggleTask,

@@ -6,6 +6,7 @@ import {
 import { useStore, addSale, deleteSale } from '@/store';
 import type { AppState } from '@/store';
 import { LeadPicker } from '@/components/LeadPicker';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { hasReachedPerson } from '@/lib/analytics';
 import {
   AGENT_SALES_TARGET, SALE_TYPES, saleTypeConfig, countByType, teamSalesTarget,
@@ -80,6 +81,7 @@ function SortButton({ dir, onToggle, label }: { dir: Dir; onToggle: () => void; 
 // ---------------------------------------------------------------------------
 export function Sales() {
   const { state, dispatch } = useStore();
+  const { ask, dialog: confirmDialog } = useConfirm();
   const me = state.users.find(u => u.id === state.currentUserId)!;
   const isQuality = me.role === 'quality';
   const isAgent = me.role === 'agent';
@@ -283,7 +285,10 @@ export function Sales() {
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0 ${cfg.chip}`}>{cfg.label}</span>
                   {isQuality && (
                     <button
-                      onClick={() => { if (window.confirm('Delete this sale?')) dispatch(deleteSale(s.id)); }}
+                      onClick={() => ask(
+                        { title: 'Delete this sale?', message: <>The {s.saleType} sale for <b>{s.leadName}</b> will be deleted. This can’t be undone.</>, confirmLabel: 'Delete', tone: 'danger' },
+                        () => dispatch(deleteSale(s.id)),
+                      )}
                       className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center shrink-0"
                       title="Delete sale"
                       aria-label="Delete sale"
@@ -297,6 +302,8 @@ export function Sales() {
           </div>
         )}
       </div>
+
+      {confirmDialog}
 
       {showForm && isQuality && (
         <RecordSaleModal

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useStore, transferLead } from '@/store';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { currentMonthKey } from '@/lib/sales';
 import type { User, Lead, Meeting } from '@/types';
 
@@ -187,6 +188,7 @@ function ReassignRow({ lead, agents, ownerName, onReassign }: {
 function TeamLeaderDashboard({ currentUser, state, dispatch }: {
   currentUser: User; state: ReturnType<typeof useStore>['state']; dispatch: ReturnType<typeof useStore>['dispatch'];
 }) {
+  const { ask, dialog: confirmDialog } = useConfirm();
   const myTeam = state.teams.find(t => t.id === currentUser.teamId);
   const teamAgents = state.users.filter(u => myTeam?.agentIds.includes(u.id));
   const teamLeads = state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.expiredAt);
@@ -218,6 +220,8 @@ function TeamLeaderDashboard({ currentUser, state, dispatch }: {
         </p>
       </div>
 
+      {confirmDialog}
+
       <TodayMeetingsCard meetings={todayMeetings} users={state.users} title="Team Meetings Today" />
 
       {expiredLeads.length > 0 && (
@@ -229,7 +233,10 @@ function TeamLeaderDashboard({ currentUser, state, dispatch }: {
               <ReassignRow
                 key={l.id} lead={l} agents={teamAgents}
                 ownerName={state.users.find(u => u.id === l.agentId)?.name ?? '—'}
-                onReassign={agentId => dispatch(transferLead({ leadId: l.id, newAgentId: agentId }))}
+                onReassign={agentId => ask(
+                  { title: 'Reassign this lead?', message: <><b>{l.companyName}</b> will move to <b>{state.users.find(u => u.id === agentId)?.name ?? 'the selected agent'}</b> and start again from touch point 1. The old history is kept.</>, confirmLabel: 'Reassign' },
+                  () => dispatch(transferLead({ leadId: l.id, newAgentId: agentId })),
+                )}
               />
             ))}
           </div>

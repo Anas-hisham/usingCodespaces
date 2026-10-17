@@ -6,6 +6,7 @@ import {
 import { useStore, addMeeting, updateMeeting, addNotification } from '@/store';
 import type { AppState } from '@/store';
 import { LeadPicker } from '@/components/LeadPicker';
+import { useConfirm } from '@/components/ConfirmDialog';
 import type { Meeting, MeetingStatus, User } from '@/types';
 
 const STATUS_CONFIG: Record<MeetingStatus, { label: string; color: string; bg: string; icon?: typeof CheckCircle2 }> = {
@@ -18,6 +19,7 @@ const STATUS_CONFIG: Record<MeetingStatus, { label: string; color: string; bg: s
 
 export function CalendarPage() {
   const { state, dispatch } = useStore();
+  const { ask, dialog: confirmDialog } = useConfirm();
   const currentUser = state.users.find(u => u.id === state.currentUserId)!;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -243,14 +245,18 @@ export function CalendarPage() {
         />
       )}
 
+      {confirmDialog}
+
       {selectedMeeting && (
         <MeetingDetailModal
           meeting={selectedMeeting}
           currentUser={currentUser}
           onClose={() => setSelectedMeeting(null)}
           onUpdate={(updates) => {
-            dispatch(updateMeeting({ meetingId: selectedMeeting.id, updates }));
-            setSelectedMeeting(null);
+            const apply = () => { dispatch(updateMeeting({ meetingId: selectedMeeting.id, updates })); setSelectedMeeting(null); };
+            if (updates.status === 'cancelled') {
+              ask({ title: 'Cancel this meeting?', message: <><b>{selectedMeeting.title}</b> will be marked as cancelled.</>, confirmLabel: 'Cancel meeting', tone: 'danger' }, apply);
+            } else apply();
           }}
         />
       )}
