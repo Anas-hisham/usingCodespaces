@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * SalesFlow design tokens
+ *   Primary (buttons, active nav, focus) ... blue
+ *   Success ... emerald   Warning ... amber   Error ... rose
+ *   Accent ... violet (meetings, emails)   Secondary accent ... cyan (call touch points)
+ *   Neutrals ... slate (bg-slate-50 page, white cards, slate-200 borders)
+ * Controls rounded-lg, cards rounded-xl, dialogs rounded-2xl. System UI font stack.
+ */
 @layer base {
   :root {
     --color-primary-50: #eff6ff;
@@ -16,9 +24,51 @@
     --color-primary-900: #1e3a8a;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: #0f172a;
+    background-color: #f8fafc;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  ::selection {
+    background: #bfdbfe;
+    color: #1e3a8a;
+  }
+
+  /* Keyboard users always see where they are. Mouse clicks stay clean. */
+  button:focus-visible,
+  a:focus-visible,
+  summary:focus-visible,
+  [role='button']:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    background-color: #f1f5f9;
+    color: #64748b;
+  }
+
+  /* Date / time / select controls match the text inputs */
+  select {
+    background-color: #fff;
   }
 }
 
@@ -28,23 +78,29 @@
     scrollbar-color: #cbd5e1 transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    background-clip: content-box;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
 
   .animate-fade-in {
-    animation: fadeIn 0.2s ease-out;
+    animation: fadeIn 0.18s ease-out;
   }
 
   .animate-slide-in {
-    animation: slideIn 0.25s ease-out;
+    animation: slideIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   @keyframes fadeIn {
@@ -58,21 +114,31 @@
   }
 
   @keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
+    from { transform: translateY(12px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
 
   .animate-slide-up {
-    animation: slideUp 0.25s ease-out;
+    animation: slideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   @keyframes pulse-ring {
-    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-    70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(244, 63, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
   }
 
   .animate-pulse-ring {
     animation: pulse-ring 2s infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
