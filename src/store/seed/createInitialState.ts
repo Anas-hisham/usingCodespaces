@@ -18,7 +18,7 @@ export function createInitialState(): AppState {
   return {
     currentUserId: '',
     users, teams, workflows, leads,
-    meetings, updates, tasks, tips,
+    meetings, updates, tasks, tips, escalations: [],
     emailTemplates, emailLogs, notifications, sales,
   };
 }

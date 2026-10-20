@@ -19,7 +19,7 @@ export function RecordSaleModal({
   onClose: () => void;
   onSave: (sale: Sale) => void;
 }) {
-  const agents = state.users.filter(u => u.role === 'agent');
+  const agents = state.users.filter(u => u.role === 'agent' && u.qualityId === me.id);   // the agents this Quality follows
   const [agentId, setAgentId] = useState('');
   const [leadId, setLeadId] = useState('');
   const [saleType, setSaleType] = useState<SaleType | ''>('');

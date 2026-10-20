@@ -1,7 +1,7 @@
 import { Download, Search, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { normalizeLeadCode } from '@/domain/lead/leadCode';
-import { isInPool, planTakeFromPool, splitLeadIds } from '@/domain/lead/leadPool';
+import { daysUntilTakeable, isInPool, planTakeFromPool, splitLeadIds } from '@/domain/lead/leadPool';
 import type { ClaimResult } from '@/domain/lead/leadPool';
 import type { Lead, User, Workflow } from '@/domain/types';
 import { campaignLabel } from '@/domain/workflow/campaignLabel';
@@ -43,7 +43,9 @@ export function TakeLeadsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leads, query, me.id, users]);
   const typed = normalizeLeadCode(query).length > 0;
-  const pickedLeads = useMemo(() => leads.filter(l => picked.has(l.id) && isInPool(l)), [leads, picked]);
+  // another agent worked on this lead less than 15 days ago: it can be seen but not taken yet
+  const lockedDays = found.lead ? daysUntilTakeable(found.lead, me.id) : 0;
+  const pickedLeads = useMemo(() => leads.filter(l => picked.has(l.id) && isInPool(l) && daysUntilTakeable(l, me.id) === 0), [leads, picked, me.id]);
 
   const togglePick = (id: string) => setPicked(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -118,7 +120,14 @@ export function TakeLeadsModal({
 
               {!typed && <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-2">Leads are not listed. Write the exact ID of the lead you want and it will show up here.</p>}
 
-              {found.lead && (
+              {found.lead && lockedDays > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  <span className="font-mono">{found.lead.leadCode}</span> was added by another agent in the last 15 days.
+                  {lockedDays} day{lockedDays === 1 ? '' : 's'} left before you can add it.
+                </p>
+              )}
+
+              {found.lead && lockedDays === 0 && (
                 <label className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
                   <input type="checkbox" checked={picked.has(found.lead.id)} onChange={() => togglePick(found.lead!.id)} />
                   <span className="font-mono text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded shrink-0">{found.lead.leadCode}</span>

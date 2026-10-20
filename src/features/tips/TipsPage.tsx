@@ -99,7 +99,7 @@ export function TipsPage() {
 
       {showSend && (
         <SendTipModal
-          teams={state.teams} users={state.users} onClose={() => setShowSend(false)}
+          teams={state.teams.map(t => ({ ...t, agentIds: t.agentIds.filter(id => state.users.find(u => u.id === id)?.qualityId === me.id) })).filter(t => t.agentIds.length > 0)} users={state.users} onClose={() => setShowSend(false)}
           onSend={(agentIds, title, content) => { dispatch(sendTips({ agentIds, title, content })); setShowSend(false); }}
         />
       )}

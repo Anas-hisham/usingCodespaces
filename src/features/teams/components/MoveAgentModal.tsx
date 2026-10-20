@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { Team, User } from '@/domain/types';
 import { UserAvatar } from '@/shared/components/UserAvatar';
 
-/** The Operation Manager picks the new team for one agent. Only the team changes - the agent keeps every lead and all the data. */
+/** The Admin picks the new team for one agent. Only the team changes - the agent keeps every lead and all the data. */
 export function MoveAgentModal({ agent, fromTeam, teams, users, onMove, onClose }: {
   agent: User; fromTeam: Team | undefined; teams: Team[]; users: User[];
   onMove: (toTeamId: string) => void; onClose: () => void;

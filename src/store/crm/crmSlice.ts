@@ -14,6 +14,8 @@ import { tipReducers } from '@/store/crm/reducers/tipReducers';
 import { emailReducers } from '@/store/crm/reducers/emailReducers';
 import { salesReducers } from '@/store/crm/reducers/salesReducers';
 import { schedulerReducers } from '@/store/crm/reducers/schedulerReducers';
+import { escalationReducers } from '@/store/crm/reducers/escalationReducers';
+import { workflowReducers } from '@/store/crm/reducers/workflowReducers';
 import { notificationReducers } from '@/store/crm/reducers/notificationReducers';
 
 /**
@@ -39,6 +41,8 @@ const slice = createSlice({
     ...salesReducers,
     ...schedulerReducers,
     ...notificationReducers,
+    ...workflowReducers,
+    ...escalationReducers,
   },
 });
 
@@ -50,6 +54,8 @@ export const {
   createMeeting, updateMeeting, postTeamUpdate, acknowledgeTeamUpdate, markUpdatesSeen, createTask, toggleTaskCompletion, markTasksSeen,
   sendTips, acknowledgeTip, markTipsSeen,
   sendEmailForLead, sendBulkEmailForLeads, sendStandaloneEmail, recordSale, deleteSale, runScheduledJobs,
+  saveWorkflow, deleteWorkflow, assignTeamToManager, setAgentQuality,
+  createEscalation, forwardEscalation, resolveEscalation,
   markNotificationRead, markAllNotificationsRead, addNotification, resetToSeedData,
 } = slice.actions;
 export default slice.reducer;

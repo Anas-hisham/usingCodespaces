@@ -43,7 +43,7 @@ export function TasksPage() {
   );
 
   const assignees = currentUser.role === 'operation_manager'
-    ? state.users.filter(u => u.role === 'quality' || (u.role === 'team_leader' && state.teams.some(t => t.leaderId === u.id && t.managerId === currentUser.id)))   // my team leaders + Quality
+    ? state.users.filter(u => (u.role === 'quality' && u.lob === currentUser.lob) || (u.role === 'team_leader' && state.teams.some(t => t.leaderId === u.id && t.managerId === currentUser.id)))   // my team leaders + Quality
     : state.users.filter(u => myTeam?.agentIds.includes(u.id));
 
   return (

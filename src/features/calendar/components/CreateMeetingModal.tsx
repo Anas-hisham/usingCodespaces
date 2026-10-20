@@ -38,17 +38,17 @@ export function CreateMeetingModal({
   const availableLeads = useMemo(() => {
     if (isAgent) return state.leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue && !l.stopped && !l.expiredAt);
     if (isTL) return state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.stopped && !l.expiredAt);
-    if (isQuality) return state.leads.filter(l => !!l.agentId && !l.removedFromQueue && !l.stopped && !l.expiredAt);
+    if (isQuality) return state.leads.filter(l => !!l.agentId && state.users.find(u => u.id === l.agentId)?.qualityId === currentUser.id && !l.removedFromQueue && !l.stopped && !l.expiredAt);   // the agents Quality follows
     return [];
   }, [state.leads, currentUser, isAgent, isTL, isQuality, myTeam]);
 
   const availableParticipants = useMemo(() => {
     if (isAgent) return [];
     if (isTL) return state.users.filter(u => myTeam?.agentIds.includes(u.id));
-    if (isQuality) return state.users.filter(u => u.role === 'agent');
+    if (isQuality) return state.users.filter(u => u.role === 'agent' && u.qualityId === currentUser.id);
     if (isOM) {
       const myLeaderIds = state.teams.filter(t => t.managerId === currentUser.id).map(t => t.leaderId);
-      return state.users.filter(u => u.role === 'quality' || (u.role === 'team_leader' && myLeaderIds.includes(u.id)));   // my team leaders + Quality
+      return state.users.filter(u => (u.role === 'quality' && u.lob === currentUser.lob) || (u.role === 'team_leader' && myLeaderIds.includes(u.id)));   // my team leaders + Quality
     }
     return [];
   }, [state.users, state.teams, currentUser, isTL, isOM, isQuality, myTeam]);

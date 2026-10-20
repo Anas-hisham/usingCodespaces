@@ -47,19 +47,38 @@ const ROWS: Row[] = [
   // quality
   ['u-q1', 'Hana Samy', 'quality', undefined, '#7c3aed'],
   ['u-q2', 'Ibrahim Naguib', 'quality', undefined, '#0f766e'],
+  ['u-q3', 'Mai Fouad', 'quality', undefined, '#b45309'],
+  ['u-q4', 'Tarek Lotfy', 'quality', undefined, '#0369a1'],
 ];
+
+/** Each Operation Manager runs one line of business; teams, Team Leaders and agents belong to the LOB of their manager (see seedTeams). */
+const OM_LOB: Record<string, string> = { 'u-om': 'REG', 'u-om2': 'DJ' };
+const QUALITY_LOB: Record<string, string> = { 'u-q1': 'REG', 'u-q3': 'REG', 'u-q2': 'DJ', 'u-q4': 'DJ' };
+/** Teams t-1..t-4 are managed by Ahmed (REG), t-5..t-6 by Layla (DJ). Agents are shared out between the Quality members of their LOB. */
+const TEAM_LOB: Record<string, string> = { 't-1': 'REG', 't-2': 'REG', 't-3': 'REG', 't-4': 'REG', 't-5': 'DJ', 't-6': 'DJ' };
 
 const SUFFIX: Record<UserRole, string> = { admin: '', operation_manager: 'om', team_leader: 'tl', agent: 'agent', quality: 'quality' };
 
-/** The demo people: 1 admin, 2 operation managers, 6 team leaders (each with a team of 3-4 agents) and 2 Quality members. */
+/** The demo people: 1 admin, 2 operation managers (REG and DJ), 6 team leaders (each with a team of 3-4 agents) and 4 Quality members (2 per LOB). */
 export function createSeedUsers(): User[] {
+  const qualityIdsOf = (lob: string) => Object.keys(QUALITY_LOB).filter(id => QUALITY_LOB[id] === lob);
+  const agentCount: Record<string, number> = {};
   return ROWS.map(([id, name, role, teamId, color]) => {
+    const lob = role === 'operation_manager' ? OM_LOB[id] : role === 'quality' ? QUALITY_LOB[id] : undefined;
+    let qualityId: string | undefined;
+    if (role === 'agent' && teamId) {
+      const agentLob = TEAM_LOB[teamId];
+      const options = qualityIdsOf(agentLob);
+      qualityId = options[(agentCount[agentLob] = (agentCount[agentLob] ?? -1) + 1) % options.length];
+    }
     const first = name.split(' ')[0].toLowerCase();
     return {
       id, name, role, color, initials: initialsOf(name),
       username: role === 'admin' ? 'admin' : `${first}.${SUFFIX[role]}`,
       email: role === 'admin' ? 'admin@company.com' : `${first}@company.com`,
       ...(teamId ? { teamId } : {}),
+      ...(lob ? { lob } : {}),
+      ...(qualityId ? { qualityId } : {}),
       dailyCallTarget: role === 'agent' ? 90 : 0,
     };
   });

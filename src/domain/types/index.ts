@@ -11,3 +11,4 @@ export * from './email';
 export * from './notification';
 export * from './sale';
 export * from './tip';
+export * from './escalation';

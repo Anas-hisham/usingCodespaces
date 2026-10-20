@@ -19,9 +19,9 @@ export function CreateUpdateModal({
   const [content, setContent] = useState('');
 
   const audienceOptions: { value: UpdateAudience; label: string; show: boolean }[] = [
-    { value: 'all', label: 'Everyone (all TLs, agents and Quality)', show: isOM },
-    { value: 'team_leaders', label: 'All Team Leaders only', show: isOM },
-    { value: 'quality', label: 'Quality only', show: isOM },
+    { value: 'all', label: 'Everyone in my line of business (TLs, agents, Quality)', show: isOM },
+    { value: 'team_leaders', label: 'My Team Leaders only', show: isOM },
+    { value: 'quality', label: 'My line of business Quality only', show: isOM },
     { value: 'specific_team', label: 'My Team Agents', show: !isOM },   // the OM talks to everyone / TLs / Quality, never to one team
   ];
 
