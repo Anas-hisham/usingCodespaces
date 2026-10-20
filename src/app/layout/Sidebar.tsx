@@ -7,13 +7,13 @@ interface SidebarProps {
   navItems: NavItem[];
   currentPage: PageId;
   onNavigate: (page: PageId) => void;
-  unreadCount: number;
+  badges: Partial<Record<PageId, number>>;
   currentUser: User;
   onLogout: () => void;
 }
 
 /** The dark menu on the left: the pages this role may open, and who is signed in. Shrinks to icons on small screens. */
-export function Sidebar({ navItems, currentPage, onNavigate, unreadCount, currentUser, onLogout }: SidebarProps) {
+export function Sidebar({ navItems, currentPage, onNavigate, badges, currentUser, onLogout }: SidebarProps) {
   return (
     <aside className="w-[72px] lg:w-60 bg-white flex flex-col shrink-0 border-r border-slate-200">
       <div className="h-16 px-4 lg:px-5 flex items-center justify-center lg:justify-start gap-3 border-b border-slate-200">
@@ -47,9 +47,9 @@ export function Sidebar({ navItems, currentPage, onNavigate, unreadCount, curren
                 strokeWidth={active ? 2.25 : 2}
               />
               <span className="hidden lg:inline">{item.label}</span>
-              {item.id === 'updates' && unreadCount > 0 && (
+              {(badges[item.id] ?? 0) > 0 && (
                 <span className="absolute top-1 right-1.5 lg:static lg:ml-auto bg-rose-500 text-white text-[11px] font-semibold leading-none px-1.5 py-1 rounded-full min-w-[20px] text-center">
-                  {unreadCount}
+                  {badges[item.id]}
                 </span>
               )}
             </button>

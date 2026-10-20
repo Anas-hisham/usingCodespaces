@@ -1,12 +1,12 @@
 /** In-app notifications. */
 export interface Notification {
   id: string;
-  type: 'meeting' | 'update' | 'task' | 'overdue' | 'email';
+  type: 'meeting' | 'update' | 'task' | 'overdue' | 'email' | 'tip';
   title: string;
   message: string;
   timestamp: string;
   read: boolean;
   leadId?: string;
   meetingId?: string;
-  userId?: string;   // when set, only this user sees the notification
+  userId?: string;   // only this user sees the notification (every new notification has one: nobody is notified about what they did themselves)
 }

@@ -20,8 +20,8 @@ export function QueueLeadRow({
   const due = describeDueDate(tp);
   const overdue = due.tone === 'overdue';
   // 15-day rule: warn the agent when a lead is about to leave the queue
-  const daysLeft = lead.status === 'arranged_meeting' ? null : daysUntilExpiry(lead, now);
-  const expiring = daysLeft !== null && daysLeft <= 3;
+  const daysLeft = daysUntilExpiry(lead, now);
+  const expiring = daysLeft <= 3;
   // an email step with no address cannot be sent automatically
   const missingEmail = !!tp && tp.type === 'email' && !lead.email;
 

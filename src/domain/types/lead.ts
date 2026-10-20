@@ -2,6 +2,7 @@
 import type { CallLog } from '@/domain/types/callLog';
 import type { TouchPoint, TouchPointType } from '@/domain/types/workflow';
 
+// 'arranged_meeting' is legacy: old saved data may still contain it, new meetings never set it (a lead with a meeting is 'discovery').
 export type LeadStatus = 'new' | 'discovery' | 'lvm' | 'nvm' | 'no_response' | 'arranged_meeting';
 
 export interface LeadHistoryEntry {

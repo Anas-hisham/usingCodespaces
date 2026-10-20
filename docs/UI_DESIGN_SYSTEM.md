@@ -29,3 +29,11 @@ Tailwind فقط. الـ tokens الأساسية موجودة في أول `src/in
 ## Breakpoints
 
 mobile-first: `sm 640` · `md 768` · `lg 1024`. الـ Sidebar بيتحوّل لأيقونات تحت `lg`.
+
+## Collapsible (السهم اللي بيفتح ويقفل)
+
+أي حاجة ليها أولاد (مانجر ← تيمز ← agents، update ← مين ردّ، task ← مين خلّصها، TL ← agents) بتتعرض بـ `shared/components/Collapsible.tsx`: الـ header دايمًا ظاهر وجنبه سهم، والضغط عليه يفتح/يقفل المحتوى. مستخدم في: Teams، Sales، Dashboard الـ OM، Team Updates، Tasks، Send Tip. القايمة الطويلة المقفولة افتراضيًا بـ `DoneSection` (Completed / Acknowledged / Got it).
+
+## Teams: ترتيب الكروت
+
+الـ OM هو header البانل، وتحته grid عادي (`sm:grid-cols-2 xl:grid-cols-3`). أول 3 تيمز على صف (شمال، نص، يمين)، والرابع يبدأ صف جديد من الشمال وهكذا. مفيش خطوط توصيل.

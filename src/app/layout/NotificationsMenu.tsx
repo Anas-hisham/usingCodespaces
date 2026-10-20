@@ -25,7 +25,9 @@ export function NotificationsMenu({ notifications, unreadCount, onNavigate }: No
       >
         <Bell className="w-[18px] h-[18px] text-slate-600" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse-ring" />
+          <span className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[10px] font-semibold leading-none px-1 py-0.5 rounded-full min-w-[16px] text-center">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         )}
       </button>
 
@@ -53,7 +55,10 @@ export function NotificationsMenu({ notifications, unreadCount, onNavigate }: No
                     key={n.id}
                     onClick={() => {
                       dispatch(markNotificationRead(n.id));
-                      if (n.meetingId) onNavigate('calendar');
+                      if (n.type === 'update') onNavigate('updates');
+                      else if (n.type === 'task') onNavigate('tasks');
+                      else if (n.type === 'tip') onNavigate('tips');
+                      else if (n.meetingId) onNavigate('calendar');
                       else if (n.leadId) onNavigate('workqueue');
                       setNotifOpen(false);
                     }}
@@ -62,10 +67,10 @@ export function NotificationsMenu({ notifications, unreadCount, onNavigate }: No
                     }`}
                   >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      n.type === 'overdue' ? 'bg-rose-100' : n.type === 'meeting' ? 'bg-violet-100' : 'bg-slate-100'
+                      n.type === 'overdue' ? 'bg-rose-100' : n.type === 'meeting' ? 'bg-violet-100' : n.type === 'tip' ? 'bg-amber-100' : 'bg-slate-100'
                     }`}>
                       <Icon className={`w-4 h-4 ${
-                        n.type === 'overdue' ? 'text-rose-600' : n.type === 'meeting' ? 'text-violet-600' : 'text-slate-600'
+                        n.type === 'overdue' ? 'text-rose-600' : n.type === 'meeting' ? 'text-violet-600' : n.type === 'tip' ? 'text-amber-600' : 'text-slate-600'
                       }`} />
                     </div>
                     <div className="flex-1 min-w-0">

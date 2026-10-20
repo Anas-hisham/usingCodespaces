@@ -1,6 +1,7 @@
 import { Send, X } from 'lucide-react';
 import { useState } from 'react';
 import type { Task, User } from '@/domain/types';
+import { roleLabel } from '@/domain/user/roleLabel';
 
 export function CreateTaskModal({
   currentUser, assignees, onClose, onCreate,
@@ -16,7 +17,7 @@ export function CreateTaskModal({
   const [assignAll, setAssignAll] = useState(true);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
 
-  const assigneeLabel = currentUser.role === 'operation_manager' ? 'Team Leaders' : 'Agents';
+  const assigneeLabel = currentUser.role === 'operation_manager' ? 'Team Leaders & Quality' : 'Agents';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
@@ -82,6 +83,7 @@ export function CreateTaskModal({
                       className="rounded"
                     />
                     <span className="text-sm text-slate-700">{a.name}</span>
+                    {currentUser.role === 'operation_manager' && <span className="ml-auto text-[11px] text-slate-500">{roleLabel(a.role)}</span>}
                   </label>
                 ))}
               </div>
@@ -100,7 +102,7 @@ export function CreateTaskModal({
                 title, description,
                 createdAt: new Date().toISOString(),
                 deadline: deadline || new Date(Date.now() + 7 * 86400000).toISOString(),
-                assignedTo, completedBy: [],
+                assignedTo, completedBy: [], seenBy: [currentUser.id],
               };
               onCreate(task);
               setTitle(''); setDescription(''); setDeadline('');

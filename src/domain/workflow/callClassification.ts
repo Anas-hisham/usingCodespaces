@@ -24,22 +24,20 @@ export function effectiveCallType(lead: Lead): CallType | null {
 }
 
 /**
- * Category used by the work queue (each one is its own section).
+ * Category used by the work queue (each one is its own section). There is NO "meeting" category:
+ * a lead with an arranged meeting is a Discovery lead like any other.
  *   no calls yet                -> new
- *   best result = discovery     -> discovery   (even if there is also an LVM)
+ *   best result = discovery     -> discovery   (even if there is also an LVM, or a meeting was arranged)
  *   best result = lvm           -> lvm
  *   only NVM calls              -> nvm
- *   meeting arranged            -> meeting     (until the meeting day ends)
  */
-export type QueueCategory = 'new' | 'discovery' | 'lvm' | 'nvm' | 'meeting';
+export type QueueCategory = 'new' | 'discovery' | 'lvm' | 'nvm';
 
 export function queueCategory(lead: Lead): QueueCategory {
-  if (lead.status === 'arranged_meeting') return 'meeting';
   return effectiveCallType(lead) ?? 'new';
 }
 
-/** The status stored on the lead after a call (never overrides an arranged meeting). */
+/** The status stored on the lead after a call. */
 export function statusFromCalls(lead: Lead): Lead['status'] {
-  if (lead.status === 'arranged_meeting') return lead.status;
   return effectiveCallType(lead) ?? 'new';
 }

@@ -3,9 +3,10 @@ import { useMemo, useState } from 'react';
 import type { Meeting } from '@/domain/types';
 import { CreateMeetingModal, type MeetingPrefill } from '@/features/calendar/components/CreateMeetingModal';
 import { MeetingDetailModal } from '@/features/calendar/components/MeetingDetailModal';
+import { MeetingsList } from '@/features/calendar/components/MeetingsList';
 import { MEETING_STATUS_STYLE } from '@/features/calendar/meetingStatusStyles';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
-import { addNotification, createMeeting, updateMeeting, useStore } from '@/store';
+import { createMeeting, updateMeeting, useStore } from '@/store';
 
 export function CalendarPage() {
   const { state, dispatch } = useStore();
@@ -52,7 +53,7 @@ export function CalendarPage() {
   }, [myMeetings]);
 
   const dayMeetings = selectedDate ? meetingsByDate[selectedDate] || [] : [];
-  const todayMeetings = meetingsByDate[todayStr] || [];
+  const todayMeetings = (meetingsByDate[todayStr] || []).filter(m => m.status === 'arranged');   // done ones are not "today's to do"
 
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -60,11 +61,12 @@ export function CalendarPage() {
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
   const isToday = (d: Date) => formatDate(d) === todayStr;
 
+  const creatorName = (m: Meeting) => state.users.find(u => u.id === m.createdBy)?.name ?? 'Manager';
   const getDisplayParticipants = (m: Meeting): string => {
     if (m.type === 'lead_meeting' && m.companyName) return m.participantNames.join(', ');
     const isCreator = currentUser.id === m.createdBy;
     if (isCreator) return m.participantNames.join(', ');
-    return ['Manager', ...m.participantNames].join(', ');
+    return [creatorName(m), ...m.participantNames].join(', ');
   };
 
   return (
@@ -217,6 +219,12 @@ export function CalendarPage() {
         </div>
       </div>
 
+      <MeetingsList
+        meetings={myMeetings}
+        describe={m => `${m.type === 'lead_meeting' && m.companyName ? `${m.companyName} • ` : ''}${getDisplayParticipants(m)}`}
+        onOpen={setSelectedMeeting}
+      />
+
       {showCreateModal && (
         <CreateMeetingModal
           state={state}
@@ -225,16 +233,8 @@ export function CalendarPage() {
           onClose={() => { setShowCreateModal(false); setPrefill(null); }}
           onCreate={(meeting) => {
             dispatch(createMeeting(meeting));
-            // rescheduling: the old meeting is closed only now, once the new time is really saved (the lead stays in Meeting)
+            // rescheduling: the old meeting is closed only now, once the new time is really saved
             if (prefill?.purpose === 'reschedule') dispatch(updateMeeting({ meetingId: prefill.source.id, updates: { status: 'rescheduled' } }));
-            dispatch(addNotification({
-              id: crypto.randomUUID(),
-              type: 'meeting',
-              title: 'Meeting scheduled',
-              message: `${meeting.title} on ${meeting.date} at ${meeting.time}`,
-              timestamp: new Date().toISOString(),
-              read: false,
-            }));
             setShowCreateModal(false);
             setPrefill(null);
           }}
@@ -247,6 +247,7 @@ export function CalendarPage() {
         <MeetingDetailModal
           meeting={selectedMeeting}
           currentUser={currentUser}
+          creatorName={creatorName(selectedMeeting)}
           onClose={() => setSelectedMeeting(null)}
           onReschedule={() => { setPrefill({ source: selectedMeeting, purpose: 'reschedule' }); setSelectedMeeting(null); setShowCreateModal(true); }}
           onScheduleAnother={() => { setPrefill({ source: selectedMeeting, purpose: 'follow_up' }); setSelectedMeeting(null); setShowCreateModal(true); }}

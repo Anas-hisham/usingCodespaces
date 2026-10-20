@@ -15,30 +15,29 @@ export function CreateUpdateModal({
   const myTeam = state.teams.find(t => t.id === currentUser.teamId);
 
   const [audience, setAudience] = useState<UpdateAudience>(isOM ? 'all' : 'specific_team');
-  const [selectedTeamId, setSelectedTeamId] = useState(myTeam?.id || state.teams[0]?.id || '');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
 
   const audienceOptions: { value: UpdateAudience; label: string; show: boolean }[] = [
-    { value: 'all', label: 'Everyone (all TLs + all agents)', show: isOM },
+    { value: 'all', label: 'Everyone (all TLs, agents and Quality)', show: isOM },
     { value: 'team_leaders', label: 'All Team Leaders only', show: isOM },
-    { value: 'specific_team', label: isOM ? 'Specific Team' : 'My Team Agents', show: true },
+    { value: 'quality', label: 'Quality only', show: isOM },
+    { value: 'specific_team', label: 'My Team Agents', show: !isOM },   // the OM talks to everyone / TLs / Quality, never to one team
   ];
-
-  const availableTeams = isOM ? state.teams : state.teams.filter(t => t.id === currentUser.teamId);
 
   const handleCreate = () => {
     if (!title.trim() || !content.trim()) return;
     const update: TeamUpdate = {
       id: crypto.randomUUID(),
       audience,
-      teamId: audience === 'specific_team' ? selectedTeamId : null,
+      teamId: audience === 'specific_team' ? (myTeam?.id ?? null) : null,
       authorId: currentUser.id,
       authorName: currentUser.name,
       title,
       content,
       createdAt: new Date().toISOString(),
       acknowledgedBy: [],
+      seenBy: [currentUser.id],
     };
     onCreate(update);
     setTitle(''); setContent('');
@@ -73,21 +72,6 @@ export function CreateUpdateModal({
             </div>
           </div>
 
-          {audience === 'specific_team' && availableTeams.length > 1 && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Team</label>
-              <select
-                value={selectedTeamId}
-                onChange={e => setSelectedTeamId(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                {availableTeams.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Title</label>
             <input
@@ -110,9 +94,10 @@ export function CreateUpdateModal({
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <AlertCircle className="w-3.5 h-3.5" />
-            {audience === 'all' ? 'All team leaders and agents will see this' :
+            {audience === 'all' ? 'All team leaders, agents and Quality will see this' :
              audience === 'team_leaders' ? 'Only team leaders will see this' :
-             'Agents in the selected team will see this'}
+             audience === 'quality' ? 'Only the Quality team will see this' :
+             'The agents of your team will see this'}
           </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">

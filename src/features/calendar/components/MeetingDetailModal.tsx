@@ -4,10 +4,11 @@ import type { Meeting, MeetingStatus, User } from '@/domain/types';
 import { MEETING_STATUS_STYLE } from '@/features/calendar/meetingStatusStyles';
 
 export function MeetingDetailModal({
-  meeting, currentUser, onClose, onUpdate, onReschedule, onScheduleAnother,
+  meeting, currentUser, creatorName = 'Manager', onClose, onUpdate, onReschedule, onScheduleAnother,
 }: {
   meeting: Meeting;
   currentUser: User;
+  creatorName?: string;              // who scheduled it (shown to the invited people)
   onClose: () => void;
   onUpdate: (updates: Partial<Meeting>) => void;
   onReschedule: () => void;          // opens the schedule form with this meeting's data, to pick another time
@@ -25,7 +26,7 @@ export function MeetingDetailModal({
     if (m.type === 'lead_meeting' && m.companyName) return m.participantNames.join(', ');
     const isCreator = currentUser.id === m.createdBy;
     if (isCreator) return m.participantNames.join(', ');
-    return ['Manager', ...m.participantNames].join(', ');
+    return [creatorName, ...m.participantNames].join(', ');
   };
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">

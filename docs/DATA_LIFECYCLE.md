@@ -29,7 +29,7 @@ erDiagram
 Lead {
   id, leadCode, campaignCode, companyName, contactName, phone, email,
   agentId: ''            // '' = في الـ pool مفيش حد ماسكه
-  status: 'new'|'discovery'|'lvm'|'nvm'|'no_response'|'arranged_meeting'
+  status: 'new'|'discovery'|'lvm'|'nvm'|'no_response'  // 'arranged_meeting' قديم، مابقاش بيتحط
   touchPoints: [{ order, type:'call'|'email', label, dayOffset, status, dueDate, completedAt }]
   currentTouchPoint: 0   // order الخطوة اللي مستنيها دلوقتي (-1 = خلص كله)
   callLogs: [{ type:'nvm'|'lvm'|'discovery', description, round, ... }]
@@ -66,7 +66,7 @@ flowchart TD
 2. لما الـ agent يخلّص خطوة: بتبقى `completed`، والخطوة اللي بعدها ميعادها = **الفرق بين الـ dayOffset بتاعها وبتاع اللي قبلها**، محسوب من **لحظة التخليص** (مش من يوم الاستلام).
 3. الـ `currentTouchPoint` دايماً بيشاور على أول خطوة مفتوحة.
 4. الـ Work Queue بيصنّف الليد حسب ميعاد خطوته: **Today** (النهاردة أو متأخر) / **Next** (بكره أو بعد) / **Stop** (الـ agent وقّفه) / **Finished**.
-5. جوه كل خطوة بيتقسم حسب أحسن نتيجة مكالمة: `discovery > lvm > nvm`، ولو معمول meeting يبقى section **Meeting**.
+5. جوه كل خطوة بيتقسم حسب أحسن نتيجة مكالمة: `discovery > lvm > nvm`، والـ meeting **مش** category: الليد اللي معمولّه meeting بيفضل في خطوته الحالية كـ **Discovery** عادي، والـ touch points ماتتغيّرش. الـ meeting بيظهر في الـ Calendar وفي "Arranged Meetings — Today" بس.
 
 ## 4) لما الـ Agent يستلم الليد وبعدين الليد يتشال/يتحول
 
@@ -100,7 +100,7 @@ flowchart TD
 
 - الـ `Meeting` (النوع `lead_meeting` أو `internal_meeting`، والحالة `arranged` / `completed` / `no_show` / `cancelled` / `rescheduled`) ليه حقل `outcome` (وصف اللي حصل). **إجباري** لما meeting مع ليد يتعمله `completed` (الـ UI بيطلبه والـ store بيرفض من غيره). الـ meeting الداخلي مش محتاجه.
 - الـ outcome بيتحفظ على الـ meeting وبيتكتب كمان في `history` بتاع الليد (`meeting_completed`).
-- **Reschedule**: بيفتح فورم Schedule ببيانات نفس الميتنج (الليد، الناس، العنوان، المدة، الأجندة) تختار وقت تاني. الميتنج الجديد بيتعمل الأول ثم القديم بيتقفل `rescheduled`، فالليد يفضل في قسم Meeting.
+- **Reschedule**: بيفتح فورم Schedule ببيانات نفس الميتنج (الليد، الناس، العنوان، المدة، الأجندة) تختار وقت تاني. الميتنج الجديد بيتعمل الأول ثم القديم بيتقفل `rescheduled`، والليد في الـ Work Queue ماليهوش علاقة بالعملية دي (بيفضل Discovery).
 - **Schedule another meeting with this lead**: نفس الفورم بنفس البيانات لميتنج إضافي، وكمان متاح من زرار "Save & schedule next meeting" بعد كتابة الـ outcome.
 
 ## 8) السيلز (Sales)

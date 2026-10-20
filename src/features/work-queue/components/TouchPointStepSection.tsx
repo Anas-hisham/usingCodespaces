@@ -15,7 +15,7 @@ interface TouchPointStepSectionProps {
   handlers: QueueHandlers;
 }
 
-/** One touch point step (for example "1: CALL") of a campaign, split into its categories (New / Discovery / LVM / NVM / Meeting). */
+/** One touch point step (for example "1: CALL") of a campaign, split into its categories (New / Discovery / LVM / NVM). */
 export function TouchPointStepSection({ campaignCode, bucket, step, now, sections, handlers }: TouchPointStepSectionProps) {
   const { isOpen, toggle } = sections;
   const stepKey = `${campaignCode}|${bucket}|${step.order}`;

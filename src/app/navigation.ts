@@ -1,18 +1,19 @@
 /** Which pages exist, who may open them, and where each role lands after signing in. */
-import { BarChart3, Bell, Calendar, CheckCircle2, Database, Inbox, LayoutDashboard, Mail, Network, Trophy, Users } from 'lucide-react';
+import { BarChart3, Bell, Calendar, CheckCircle2, Database, Inbox, LayoutDashboard, Lightbulb, Mail, Network, Trophy, Users } from 'lucide-react';
 import type { User } from '@/domain/types';
 
-export type PageId = 'adminleads' | 'dashboard' | 'workqueue' | 'calendar' | 'leads' | 'updates' | 'tasks' | 'emails' | 'sales' | 'analytics' | 'teams';
+export type PageId = 'adminleads' | 'dashboard' | 'workqueue' | 'calendar' | 'leads' | 'updates' | 'tasks' | 'emails' | 'sales' | 'analytics' | 'teams' | 'tips';
 
 export interface NavItem {
   id: PageId;
   label: string;
   icon: typeof LayoutDashboard;
   roles: User['role'][];
-  badge?: number;
 }
 
 const ALL_ROLES: User['role'][] = ['operation_manager', 'team_leader', 'agent'];
+/** Pages Quality shares with the managers: it gets meetings, updates and tasks (the OM can ask Quality for a task). */
+const WITH_QUALITY: User['role'][] = [...ALL_ROLES, 'quality'];
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'adminleads', label: 'Lead Pool', icon: Database, roles: ['admin'] },
@@ -20,11 +21,12 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['operation_manager', 'team_leader', 'agent'] },
   { id: 'teams', label: 'Teams', icon: Network, roles: ['admin', ...ALL_ROLES, 'quality'] },
   { id: 'workqueue', label: 'Work Queue', icon: Inbox, roles: ['agent'] },
-  { id: 'calendar', label: 'Calendar', icon: Calendar, roles: ALL_ROLES },
+  { id: 'calendar', label: 'Calendar', icon: Calendar, roles: WITH_QUALITY },
   { id: 'leads', label: 'Leads', icon: Users, roles: ['agent'] },
   { id: 'sales', label: 'Sales', icon: Trophy, roles: [...ALL_ROLES, 'quality'] },
-  { id: 'updates', label: 'Team Updates', icon: Bell, roles: ALL_ROLES },
-  { id: 'tasks', label: 'Tasks', icon: CheckCircle2, roles: ALL_ROLES },
+  { id: 'updates', label: 'Team Updates', icon: Bell, roles: WITH_QUALITY },
+  { id: 'tasks', label: 'Tasks', icon: CheckCircle2, roles: WITH_QUALITY },
+  { id: 'tips', label: 'Tips', icon: Lightbulb, roles: ['agent', 'quality'] },
   { id: 'emails', label: 'Email Center', icon: Mail, roles: ALL_ROLES },
 ];
 

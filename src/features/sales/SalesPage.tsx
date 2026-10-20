@@ -11,8 +11,11 @@ import { SortDirectionButton } from '@/features/sales/components/SortDirectionBu
 import { TargetProgressBar } from '@/features/sales/components/TargetProgressBar';
 import { TopAgentsCard } from '@/features/sales/components/TopAgentsCard';
 import type { SortDirection, TeamGroup } from '@/features/sales/salesTypes';
+import { Collapsible } from '@/shared/components/Collapsible';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
+import { Pagination } from '@/shared/components/Pagination';
 import { UserAvatar } from '@/shared/components/UserAvatar';
+import { usePagination } from '@/shared/hooks/usePagination';
 import { currentMonthKey, monthLabel, shiftMonth } from '@/shared/lib/dates';
 import { deleteSale, recordSale, useStore } from '@/store';
 
@@ -94,6 +97,8 @@ export function SalesPage() {
     [monthSales, listDir],
   );
 
+  const salesPage = usePagination(sortedSales, 15);
+
   const title = isAgent ? 'My Sales' : isTL ? `${scopeGroups[0]?.team.name ?? 'Team'} Sales` : isOM ? 'Team Sales' : 'Sales';
   const summaryLabel = isAgent ? 'My monthly target' : isTL ? 'Team monthly target' : isOM ? 'All teams monthly target' : 'Company monthly target';
 
@@ -163,9 +168,13 @@ export function SalesPage() {
           {sortedGroups.map(g => {
             const gSales = salesOf(g.agents.map(a => a.id));
             return (
-              <div key={g.team.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                {/* Team leader: violet header so nobody mistakes the leader for an agent */}
-                <div className="p-4 bg-violet-50 border-b border-violet-100 border-l-4 border-l-violet-500">
+              <Collapsible
+                key={g.team.id}
+                defaultOpen={scopeGroups.some(sg => sg.team.id === g.team.id)}   /* my own team(s) open, the others closed until clicked */
+                className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+                headerClassName="p-4 bg-violet-50 hover:bg-violet-100/60 transition-colors border-l-4 border-l-violet-500"
+                header={
+                  <div>
                   <div className="flex items-center gap-3 mb-3">
                     {g.leader && (
                       <div className="rounded-full ring-2 ring-violet-400 ring-offset-2 ring-offset-violet-50"><UserAvatar user={g.leader} /></div>
@@ -185,8 +194,9 @@ export function SalesPage() {
                   </div>
                   <TargetProgressBar count={gSales.length} target={targetOf(g)} />
                   <div className="mt-2"><SaleTypeChips sales={gSales} /></div>
-                </div>
-
+                                  </div>
+                }
+              >
                 <div className="divide-y divide-slate-100">
                   {g.agents.map(a => {
                     const aSales = allMonthSales.filter(s => s.agentId === a.id);
@@ -226,7 +236,7 @@ export function SalesPage() {
                   })}
                   {g.agents.length === 0 && <div className="p-4 text-sm text-slate-500">No agents in this team.</div>}
                 </div>
-              </div>
+              </Collapsible>
             );
           })}
         </div>
@@ -248,7 +258,7 @@ export function SalesPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {sortedSales.map(s => {
+            {salesPage.pageItems.map(s => {
               const agent = state.users.find(u => u.id === s.agentId);
               const cfg = saleTypeConfig(s.saleType);
               const lead = state.leads.find(l => l.id === s.leadId);
@@ -285,6 +295,7 @@ export function SalesPage() {
             })}
           </div>
         )}
+        <div className="px-5 pb-4"><Pagination {...salesPage} onPage={salesPage.setPage} /></div>
       </div>
 
       {confirmDialog}

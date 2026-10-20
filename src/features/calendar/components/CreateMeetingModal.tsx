@@ -22,6 +22,7 @@ export function CreateMeetingModal({
   const isAgent = currentUser.role === 'agent';
   const isTL = currentUser.role === 'team_leader';
   const isOM = currentUser.role === 'operation_manager';
+  const isQuality = currentUser.role === 'quality';   // Quality schedules meetings with agents exactly like a team leader does
 
   const from = prefill?.source;
   const [leadId, setLeadId] = useState(from?.leadId ?? '');
@@ -37,18 +38,21 @@ export function CreateMeetingModal({
   const availableLeads = useMemo(() => {
     if (isAgent) return state.leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue && !l.stopped && !l.expiredAt);
     if (isTL) return state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.stopped && !l.expiredAt);
+    if (isQuality) return state.leads.filter(l => !!l.agentId && !l.removedFromQueue && !l.stopped && !l.expiredAt);
     return [];
-  }, [state.leads, currentUser, isAgent, isTL, myTeam]);
+  }, [state.leads, currentUser, isAgent, isTL, isQuality, myTeam]);
 
   const availableParticipants = useMemo(() => {
     if (isAgent) return [];
     if (isTL) return state.users.filter(u => myTeam?.agentIds.includes(u.id));
+    if (isQuality) return state.users.filter(u => u.role === 'agent');
     if (isOM) {
       const myLeaderIds = state.teams.filter(t => t.managerId === currentUser.id).map(t => t.leaderId);
-      return state.users.filter(u => u.role === 'team_leader' && myLeaderIds.includes(u.id));
+      return state.users.filter(u => u.role === 'quality' || (u.role === 'team_leader' && myLeaderIds.includes(u.id)));   // my team leaders + Quality
     }
     return [];
-  }, [state.users, currentUser, isTL, isOM, myTeam]);
+  }, [state.users, state.teams, currentUser, isTL, isOM, isQuality, myTeam]);
+  const teamNameOf = (userId: string) => state.teams.find(t => t.agentIds.includes(userId) || t.leaderId === userId)?.name;
 
   const selectedLead = state.leads.find(l => l.id === leadId);
 
@@ -69,7 +73,7 @@ export function CreateMeetingModal({
         priority: 'high',
         createdBy: currentUser.id,
       });
-    } else if ((isTL || isOM) && participantIds.length > 0) {
+    } else if ((isTL || isOM || isQuality) && participantIds.length > 0) {
       const participants = state.users.filter(u => participantIds.includes(u.id));
       const firstLead = selectedLead;
       onCreate({
@@ -115,7 +119,7 @@ export function CreateMeetingModal({
             </div>
           )}
 
-          {(isTL || isOM) && (
+          {(isTL || isOM || isQuality) && (
             <>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Title (optional)</label>
@@ -128,7 +132,7 @@ export function CreateMeetingModal({
                 />
               </div>
 
-              {isTL && availableLeads.length > 0 && (
+              {(isTL || isQuality) && availableLeads.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Link to Lead (optional)</label>
                   <LeadPicker leads={availableLeads} value={leadId} onChange={setLeadId} placeholder="Search a lead, then select it..." />
@@ -139,7 +143,7 @@ export function CreateMeetingModal({
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-slate-700">
                     <UsersIcon className="w-3.5 h-3.5 inline mr-1" />
-                    {isOM ? 'Select Team Leaders' : 'Select Agents'}
+                    {isOM ? 'Select Team Leaders / Quality' : 'Select Agents'}
                     <span className="text-xs text-slate-500 font-normal ml-1">({participantIds.length}/{availableParticipants.length})</span>
                   </label>
                   {availableParticipants.length > 0 && (
@@ -148,11 +152,11 @@ export function CreateMeetingModal({
                       onClick={toggleAll}
                       className="text-xs font-medium text-blue-600 hover:text-blue-700"
                     >
-                      {allSelected ? 'Clear all' : isOM ? 'Select all team leaders' : 'Select all agents'}
+                      {allSelected ? 'Clear all' : isOM ? 'Select all' : 'Select all agents'}
                     </button>
                   )}
                 </div>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin border border-slate-200 rounded-xl p-2">
+                <div className="space-y-1.5 max-h-52 overflow-y-auto scrollbar-thin border border-slate-200 rounded-xl p-2">
                   {availableParticipants.map(p => (
                     <label key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
                       <input
@@ -168,6 +172,7 @@ export function CreateMeetingModal({
                         {p.initials}
                       </div>
                       <span className="text-sm text-slate-700">{p.name}</span>
+                      {(isQuality || isOM) && <span className="ml-auto text-[11px] text-slate-500">{p.role === 'quality' ? 'Quality' : teamNameOf(p.id)}</span>}
                     </label>
                   ))}
                 </div>

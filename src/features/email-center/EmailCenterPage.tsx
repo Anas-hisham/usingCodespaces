@@ -1,21 +1,30 @@
-import { FileText, Mail, PenSquare, Search, Users } from 'lucide-react';
+import { PenSquare, Table2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { TEMPLATE_TYPE_LABEL, templateTypeForLead, type BatchTemplateType } from '@/domain/email/emailBatches';
 import { queueBucket } from '@/domain/workflow/leadQueue';
 import { findCurrentTouchPoint, isOpenTouchPoint } from '@/domain/workflow/touchPoints';
-import { BulkEmailModal } from '@/features/email-center/components/BulkEmailModal';
 import { CustomEmailModal } from '@/features/email-center/components/CustomEmailModal';
+import { EmailTouchPointGroup } from '@/features/email-center/components/EmailTouchPointGroup';
+import { SheetEmailModal } from '@/features/email-center/components/SheetEmailModal';
 import { TemplatedEmailModal } from '@/features/email-center/components/TemplatedEmailModal';
+import { useSequentialSend } from '@/features/email-center/useSequentialSend';
+import { isLeadWorkable } from '@/store/crm/helpers/currentUserGuards';
 import { sendBulkEmailForLeads, sendEmailForLead, sendStandaloneEmail, useStore } from '@/store';
+
+const GROUPS: BatchTemplateType[] = ['discovery', 'no_response'];
 
 export function EmailCenterPage() {
   const { state, dispatch } = useStore();
   const currentUser = state.users.find(u => u.id === state.currentUserId)!;
-  const [search, setSearch] = useState('');
   const [showSend, setShowSend] = useState(false);
-  const [showBulk, setShowBulk] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
+  const [includeUpcoming, setIncludeUpcoming] = useState(false);
+  const [sendingGroup, setSendingGroup] = useState<BatchTemplateType | null>(null);
+  const { progress, run, stop } = useSequentialSend();
 
   const isAgent = currentUser.role === 'agent';
   const isManager = currentUser.role === 'team_leader' || currentUser.role === 'operation_manager';
+  const templates = state.emailTemplates;
 
   const visibleLeads = useMemo(() => {
     if (isAgent) return state.leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue);
@@ -26,50 +35,49 @@ export function EmailCenterPage() {
     return state.leads.filter(l => !!l.agentId);   // pool leads have no agent yet
   }, [state.leads, currentUser, state.teams, isAgent]);
 
-  const visibleLogs = useMemo(() => {
-    let logs = state.emailLogs;
-    if (isAgent) logs = logs.filter(log => log.sentBy === currentUser.id);
-    else if (currentUser.role === 'team_leader') {
-      const team = state.teams.find(t => t.id === currentUser.teamId);
-      logs = logs.filter(log => {
-        const lead = state.leads.find(l => l.id === log.leadId);
-        return lead && team?.agentIds.includes(lead.agentId);
-      });
+  // Every lead of mine whose CURRENT touch point is an email, split by the template it gets (Discovery / No Response)
+  const emailLeadsByType = useMemo(() => {
+    const groups: Record<BatchTemplateType, typeof state.leads> = { discovery: [], no_response: [] };
+    for (const l of state.leads) {
+      if (l.agentId !== currentUser.id || !isLeadWorkable(l)) continue;
+      const tp = findCurrentTouchPoint(l);
+      if (!tp || tp.type !== 'email' || !isOpenTouchPoint(tp)) continue;
+      if (!includeUpcoming && queueBucket(l) !== 'today') continue;
+      groups[templateTypeForLead(l)].push(l);
     }
-    if (search) logs = logs.filter(log =>
-      log.subject.toLowerCase().includes(search.toLowerCase()) ||
-      log.to.toLowerCase().includes(search.toLowerCase())
-    );
-    return [...logs].sort((a, b) => b.sentAt.localeCompare(a.sentAt));
-  }, [state.emailLogs, state.leads, currentUser, state.teams, search, isAgent]);
+    const dueOf = (l: (typeof state.leads)[number]) => new Date(findCurrentTouchPoint(l)?.dueDate ?? 0).getTime();
+    GROUPS.forEach(g => groups[g].sort((a, b) => dueOf(a) - dueOf(b)));
+    return groups;
+  }, [state.leads, currentUser.id, includeUpcoming]);
 
-  const templates = state.emailTemplates;
-
-  // Optional shortcut: the agent's leads whose CURRENT step is an email that is due today (or overdue)
-  const emailStepLeads = useMemo(() => state.leads.filter(l => {
-    if (l.agentId !== currentUser.id || l.removedFromQueue || l.stopped) return false;
-    const tp = findCurrentTouchPoint(l);
-    return !!tp && tp.type === 'email' && isOpenTouchPoint(tp) && queueBucket(l) === 'today';
-  }), [state.leads, currentUser.id]);
+  const sendGroup = (type: BatchTemplateType, leadIds: string[]) => {
+    const tpl = templates.find(t => t.type === type);
+    if (!tpl || leadIds.length === 0) return;
+    setSendingGroup(type);
+    // one email at a time: each lead gets its own filled-in copy and its email step is marked complete
+    run(leadIds, id => dispatch(sendBulkEmailForLeads({
+      leadIds: [id], subject: tpl.subject, body: tpl.body, templateType: type,
+      senderId: currentUser.id, senderName: currentUser.name,
+    }))).finally(() => setSendingGroup(null));
+  };
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Email Center</h2>
           <p className="text-sm text-slate-600">
-            {isManager ? 'Send custom emails and track history' : 'Write your own emails (templates are optional) and track history'}
+            {isManager ? 'Send custom emails' : 'Send the emails your touch points are waiting for, or write your own'}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {isAgent && (
             <button
-              onClick={() => setShowBulk(true)}
+              onClick={() => setShowSheet(true)}
               className="px-4 py-2 bg-white text-violet-700 border border-violet-200 rounded-lg text-sm font-medium hover:bg-violet-50 transition-all flex items-center gap-1.5"
             >
-              <Users className="w-3.5 h-3.5" />
-              Email step leads
-              <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">{emailStepLeads.length}</span>
+              <Table2 className="w-3.5 h-3.5" />
+              Send from sheet
             </button>
           )}
           <button
@@ -83,104 +91,67 @@ export function EmailCenterPage() {
       </div>
 
       {isAgent && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          {templates.map(t => {
-            const sentCount = state.emailLogs.filter(log => log.templateType === t.type).length;
-            return (
-              <div key={t.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-900">{t.name}</h3>
-                    <p className="text-xs text-slate-600 mt-0.5">Subject: {t.subject}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {sentCount} sent
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-900">Email History</h3>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-            <input
-              type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search..." className="pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-48"
-            />
+        <section>
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold text-slate-800">Email touch points</h3>
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+              <input type="checkbox" checked={includeUpcoming} disabled={progress.running} onChange={e => setIncludeUpcoming(e.target.checked)} className="rounded" />
+              Include upcoming (not due yet)
+            </label>
           </div>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {visibleLogs.length === 0 && (
-            <div className="text-center py-12 text-slate-500">
-              <Mail className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No emails sent yet</p>
-            </div>
+          {progress.running && (
+            <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-3">Sending {progress.done}/{progress.total}… one by one.</p>
           )}
-          {visibleLogs.map(log => (
-            <div key={log.id} className="px-5 py-3 hover:bg-slate-50/30 transition-colors">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                  <Mail className="w-3.5 h-3.5 text-blue-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-900">{log.subject}</span>
-                    <span className="text-xs text-slate-500">→ {log.to}</span>
-                    {log.auto && (
-                      <span className="text-xs px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-full font-medium">
-                        Auto · {log.templateType === 'discovery' ? 'Discovery' : 'No Response'}
-                      </span>
-                    )}
-                    {log.templateType === 'custom' && (
-                      <span className="text-xs px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-full font-medium">Custom</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-600 mt-0.5 truncate">{log.body}</p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                    <span>{new Date(log.sentAt).toLocaleString()}</span>
-                    {log.leadName && <span>• {log.leadName}</span>}
-                    <span>• by {log.sentByName}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+          <div className="space-y-4">
+            {GROUPS.map(type => (
+              <EmailTouchPointGroup
+                key={type}
+                type={type}
+                title={`${TEMPLATE_TYPE_LABEL[type]} leads`}
+                template={templates.find(t => t.type === type)}
+                leads={emailLeadsByType[type]}
+                progress={progress}
+                busy={sendingGroup !== null}
+                onSend={ids => sendGroup(type, ids)}
+                onStop={stop}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {showSend && isManager && (
         <CustomEmailModal
           onClose={() => setShowSend(false)}
           onSend={(to, subject, body) => {
-            dispatch(sendStandaloneEmail({
-              to, subject, body,
-              senderId: currentUser.id,
-              senderName: currentUser.name,
-            }));
+            dispatch(sendStandaloneEmail({ to, subject, body, senderId: currentUser.id, senderName: currentUser.name }));
             setShowSend(false);
           }}
         />
       )}
 
-      {showBulk && isAgent && (
-        <BulkEmailModal
-          leads={emailStepLeads}
+      {showSheet && isAgent && (
+        <SheetEmailModal
           templates={templates}
-          onClose={() => setShowBulk(false)}
-          onSend={(leadIds, subject, body) => {
-            dispatch(sendBulkEmailForLeads({ leadIds, subject, body, senderId: currentUser.id, senderName: currentUser.name }));
-            setShowBulk(false);
+          myLeads={visibleLeads}
+          agentName={currentUser.name}
+          onClose={() => setShowSheet(false)}
+          onSendOne={p => {
+            if (p.leadId) {
+              dispatch(sendEmailForLead({
+                email: {
+                  id: crypto.randomUUID(), leadId: p.leadId, leadName: p.leadName, to: p.to, subject: p.subject, body: p.body,
+                  templateType: p.templateType, sentAt: new Date().toISOString(), sentBy: currentUser.id, sentByName: currentUser.name,
+                },
+                leadId: p.leadId,
+                touchPointOrder: -1,     // an email from the sheet never completes a touch point
+              }));
+            } else {
+              dispatch(sendStandaloneEmail({
+                to: p.to, subject: p.subject, body: p.body, templateType: p.templateType, leadName: p.leadName,
+                senderId: currentUser.id, senderName: currentUser.name,
+              }));
+            }
           }}
         />
       )}
@@ -197,9 +168,7 @@ export function EmailCenterPage() {
                 id: crypto.randomUUID(),
                 leadId: leadId || '',
                 leadName: lead?.companyName || '',
-                to,
-                subject,
-                body,
+                to, subject, body,
                 templateType: 'custom',
                 sentAt: new Date().toISOString(),
                 sentBy: currentUser.id,

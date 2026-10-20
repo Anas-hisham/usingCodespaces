@@ -14,6 +14,7 @@ import { EmailCenterPage } from '@/features/email-center/EmailCenterPage';
 import { SalesPage } from '@/features/sales/SalesPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { TeamsPage } from '@/features/teams/TeamsPage';
+import { TipsPage } from '@/features/tips/TipsPage';
 import { LeadPoolPage } from '@/features/lead-pool/LeadPoolPage';
 
 export function App() {
@@ -47,6 +48,7 @@ export function App() {
       {currentPage === 'sales' && <SalesPage />}
       {currentPage === 'analytics' && <AnalyticsPage />}
       {currentPage === 'teams' && <TeamsPage />}
+      {currentPage === 'tips' && <TipsPage />}
     </AppShell>
   );
 }

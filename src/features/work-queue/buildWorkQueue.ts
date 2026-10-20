@@ -27,7 +27,7 @@ export interface CampaignQueue {
   total: number;
 }
 
-const createEmptyLeadsByCategory = (): Record<QueueCategory, Lead[]> => ({ new: [], discovery: [], lvm: [], nvm: [], meeting: [] });
+const createEmptyLeadsByCategory = (): Record<QueueCategory, Lead[]> => ({ new: [], discovery: [], lvm: [], nvm: [] });
 
 /**
  * Campaign -> Today / Next / Stop.

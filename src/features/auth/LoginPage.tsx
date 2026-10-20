@@ -1,13 +1,19 @@
 import { roleLabel } from '@/domain/user/roleLabel';
 import { Calendar, Check, Mail, Phone, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
-import type { User } from '@/domain/types';
+import type { User, UserRole } from '@/domain/types';
 import { setCurrentUser, useStore } from '@/store';
+
+const LOGIN_GROUPS: { role: UserRole; label: string }[] = [
+  { role: 'admin', label: 'Admin' }, { role: 'operation_manager', label: 'Operation Managers' }, { role: 'team_leader', label: 'Team Leaders' },
+  { role: 'agent', label: 'Agents' }, { role: 'quality', label: 'Quality' },
+];
 
 export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const { state, dispatch } = useStore();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [password, setPassword] = useState('');
+  const teamLabel = (u: User) => state.teams.find(t => t.id === u.teamId)?.name ?? '';
 
   const handleLogin = () => {
     if (selectedUser) {
@@ -84,39 +90,47 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-1">Welcome back</h2>
           <p className="text-slate-600 text-sm mb-6">Select your profile to sign in</p>
 
-          {/* User selection grid */}
-          <div className="space-y-1.5 mb-5" role="radiogroup" aria-label="Profile">
-            {state.users.map(user => {
-              const selected = selectedUser?.id === user.id;
+          {/* User selection: grouped by role, the list scrolls (there are many people) */}
+          <div className="max-h-[22rem] overflow-y-auto scrollbar-thin pr-1 mb-5 space-y-3" role="radiogroup" aria-label="Profile">
+            {LOGIN_GROUPS.map(group => {
+              const people = state.users.filter(u => u.role === group.role);
+              if (people.length === 0) return null;
               return (
-                <button
-                  key={user.id}
-                  onClick={() => setSelectedUser(user)}
-                  role="radio"
-                  aria-checked={selected}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl border transition-all text-left ${
-                    selected
-                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                    style={{ backgroundColor: user.color }}
-                  >
-                    {user.initials}
+                <div key={group.role}>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 px-1">{group.label} <span className="font-normal">({people.length})</span></div>
+                  <div className="space-y-1.5">
+                    {people.map(user => {
+                      const selected = selectedUser?.id === user.id;
+                      return (
+                        <button
+                          key={user.id}
+                          onClick={() => setSelectedUser(user)}
+                          role="radio"
+                          aria-checked={selected}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl border transition-all text-left ${
+                            selected
+                              ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0" style={{ backgroundColor: user.color }}>
+                            {user.initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-slate-900 text-sm truncate">{user.name}</div>
+                            <div className="text-xs text-slate-600 truncate">@{user.username}{teamLabel(user) && ` · ${teamLabel(user)}`}</div>
+                          </div>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${selected ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                            {roleLabel(user.role)}
+                          </span>
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${selected ? 'bg-blue-600' : 'border border-slate-300'}`}>
+                            {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-slate-900 text-sm truncate">{user.name}</div>
-                    <div className="text-xs text-slate-600 truncate">@{user.username}</div>
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${selected ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {roleLabel(user.role)}
-                  </span>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${selected ? 'bg-blue-600' : 'border border-slate-300'}`}>
-                    {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                  </div>
-                </button>
+                </div>
               );
             })}
           </div>

@@ -6,7 +6,7 @@ import type { AppState } from '@/store/state/AppState';
 
 const ARRAY_KEYS = [
   'users', 'teams', 'workflows', 'leads', 'meetings', 'updates', 'tasks',
-  'emailTemplates', 'emailLogs', 'notifications', 'sales',
+  'emailTemplates', 'emailLogs', 'notifications', 'sales', 'tips',
 ] as const;
 
 /**
@@ -35,6 +35,12 @@ export function parseStoredState(raw: string): AppState | null {
       x.leadId ? x : { ...x, leadId: state.leads.find((l: Lead) => l.companyName === x.leadName)?.id ?? '' });
     // Older sales had other sale types and a "what the customer got" text: convert them
     state.sales = state.sales.map(migrateSale);
+    // Updates / tasks saved before "seen" existed: count them as seen, so nobody opens the app to a pile of numbers
+    const everyone = state.users.map(u => u.id);
+    state.updates = state.updates.map(u => ({ ...u, seenBy: u.seenBy ?? everyone, acknowledgedBy: u.acknowledgedBy ?? [] }));
+    state.tasks = state.tasks.map(t => ({ ...t, seenBy: t.seenBy ?? everyone, completedBy: t.completedBy ?? [] }));
+    // Old broadcast notifications (no owner) reached people who had nothing to do with them: drop them
+    state.notifications = state.notifications.filter(n => !!n.userId);
     // Older saved data: add the Quality user so nothing breaks after an upgrade.
     if (!state.users.some(u => u.role === 'quality')) state.users.push(...fresh.users.filter(u => u.role === 'quality'));
     // same for the Admin (the only role that creates leads)

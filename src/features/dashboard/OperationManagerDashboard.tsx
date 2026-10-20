@@ -1,13 +1,20 @@
+import { Collapsible } from '@/shared/components/Collapsible';
 import { TodayMeetingsCard } from '@/features/dashboard/components/TodayMeetingsCard';
 import { countCallsMadeToday, isTodayDate } from '@/features/dashboard/dashboardCallStats';
 import type { AppState } from '@/store/state/AppState';
 
 export function OperationManagerDashboard({ state }: { state: AppState }) {
-  const teamLeaders = state.users.filter(u => u.role === 'team_leader');
-  const todayMeetings = state.meetings.filter(m => m.status === 'arranged' && isTodayDate(m.date));
+  const me = state.users.find(u => u.id === state.currentUserId)!;
+  // an Operation Manager sees the teams he manages, not every team of the company
+  const myTeams = state.teams.filter(t => t.managerId === me.id);
+  const teamLeaders = myTeams.map(t => state.users.find(u => u.id === t.leaderId)).filter((u): u is NonNullable<typeof u> => !!u);
+  const myAgentIds = new Set(myTeams.flatMap(t => t.agentIds));
+  const todayMeetings = state.meetings.filter(m => m.status === 'arranged' && isTodayDate(m.date) && (
+    m.participantIds.includes(me.id) || m.createdBy === me.id || myAgentIds.has(m.agentId || '') || m.participantIds.some(id => myAgentIds.has(id))
+  ));
 
   const tlStats = teamLeaders.map(tl => {
-    const team = state.teams.find(t => t.id === tl.teamId);
+    const team = myTeams.find(t => t.leaderId === tl.id);
     const agents = state.users.filter(u => team?.agentIds.includes(u.id));
     const teamLeads = state.leads.filter(l => team?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.expiredAt);
     const allCalls = teamLeads.flatMap(l => l.callLogs);
@@ -15,7 +22,11 @@ export function OperationManagerDashboard({ state }: { state: AppState }) {
     const teamTarget = agents.reduce((sum, a) => sum + a.dailyCallTarget, 0);
     const teamEmails = state.emailLogs.filter(e => e.sentBy && team?.agentIds.includes(e.sentBy) && isTodayDate(e.sentAt));
     const teamMeetings = state.meetings.filter(m => m.type === 'lead_meeting' && m.status === 'arranged' && isTodayDate(m.date) && team?.agentIds.includes(m.agentId || ''));
-    return { tl, team, agents, todayCalls, teamTarget, teamEmails, teamMeetings };
+    const agentRows = agents.map(a => {
+      const calls = countCallsMadeToday(teamLeads.filter(l => l.agentId === a.id).flatMap(l => l.callLogs));
+      return { agent: a, calls, target: a.dailyCallTarget };
+    });
+    return { tl, team, agents, agentRows, todayCalls, teamTarget, teamEmails, teamMeetings };
   });
 
   return (
@@ -32,7 +43,7 @@ export function OperationManagerDashboard({ state }: { state: AppState }) {
       <div>
         <h3 className="text-sm font-semibold text-slate-900 mb-3">Team Leader Performance — Today</h3>
         <div className="space-y-3">
-          {tlStats.map(({ tl, team, agents, todayCalls, teamTarget, teamEmails, teamMeetings }) => {
+          {tlStats.map(({ tl, team, agents, agentRows, todayCalls, teamTarget, teamEmails, teamMeetings }) => {
             const pct = teamTarget > 0 ? Math.min((todayCalls.total / teamTarget) * 100, 100) : 0;
             return (
               <div key={tl.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -80,6 +91,29 @@ export function OperationManagerDashboard({ state }: { state: AppState }) {
                     <div className="text-[11px] text-slate-600">Meet.</div>
                   </div>
                 </div>
+
+                {/* the arrow opens the agents of this team: who made how many calls today */}
+                <Collapsible
+                  defaultOpen={false}
+                  className="mt-3 border-t border-slate-100 pt-3"
+                  header={<span className="text-xs font-medium text-slate-600">Agents ({agentRows.length})</span>}
+                >
+                  <ul className="mt-2 space-y-1.5 pl-6">
+                    {agentRows.map(({ agent, calls, target }) => {
+                      const apct = target > 0 ? Math.min((calls.total / target) * 100, 100) : 0;
+                      return (
+                        <li key={agent.id} className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0" style={{ backgroundColor: agent.color }}>{agent.initials}</div>
+                          <span className="text-xs text-slate-800 w-32 truncate">{agent.name}</span>
+                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${apct >= 100 ? 'bg-emerald-500' : 'bg-blue-600'}`} style={{ width: `${Math.max(apct, 2)}%` }} />
+                          </div>
+                          <span className="text-xs font-semibold text-slate-700 w-14 text-right">{calls.total}/{target}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Collapsible>
               </div>
             );
           })}

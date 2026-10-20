@@ -10,6 +10,7 @@ import { teamReducers } from '@/store/crm/reducers/teamReducers';
 import { meetingReducers } from '@/store/crm/reducers/meetingReducers';
 import { teamUpdateReducers } from '@/store/crm/reducers/teamUpdateReducers';
 import { taskReducers } from '@/store/crm/reducers/taskReducers';
+import { tipReducers } from '@/store/crm/reducers/tipReducers';
 import { emailReducers } from '@/store/crm/reducers/emailReducers';
 import { salesReducers } from '@/store/crm/reducers/salesReducers';
 import { schedulerReducers } from '@/store/crm/reducers/schedulerReducers';
@@ -33,6 +34,7 @@ const slice = createSlice({
     ...meetingReducers,
     ...teamUpdateReducers,
     ...taskReducers,
+    ...tipReducers,
     ...emailReducers,
     ...salesReducers,
     ...schedulerReducers,
@@ -45,7 +47,8 @@ export const {
   setCurrentUser, applyStateFromOtherTab, logCallAndCompleteTouchPoint, completeTouchPoint, skipTouchPoint, restoreSkippedTouchPoint,
   stopLeadWorkflow, resumeLeadWorkflow, removeLeadFromAgentQueue, deleteLeadPermanently,
   addLeadsToPool, deleteLeadsAsAdmin, takeLeadsFromPool, moveAgentToTeam, addCallLogWithoutCompletingTouchPoint, editCallLog, transferLeadToAgent,
-  createMeeting, updateMeeting, postTeamUpdate, acknowledgeTeamUpdate, createTask, toggleTaskCompletion,
+  createMeeting, updateMeeting, postTeamUpdate, acknowledgeTeamUpdate, markUpdatesSeen, createTask, toggleTaskCompletion, markTasksSeen,
+  sendTips, acknowledgeTip, markTipsSeen,
   sendEmailForLead, sendBulkEmailForLeads, sendStandaloneEmail, recordSale, deleteSale, runScheduledJobs,
   markNotificationRead, markAllNotificationsRead, addNotification, resetToSeedData,
 } = slice.actions;

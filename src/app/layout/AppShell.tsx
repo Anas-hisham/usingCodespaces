@@ -1,6 +1,7 @@
 import { Sidebar } from '@/app/layout/Sidebar';
 import { NotificationsMenu } from '@/app/layout/NotificationsMenu';
 import { UserMenu } from '@/app/layout/UserMenu';
+import { navBadges } from '@/app/navBadges';
 import { NAV_ITEMS } from '@/app/navigation';
 import type { PageId } from '@/app/navigation';
 import { useStore } from '@/store';
@@ -23,6 +24,7 @@ export function AppShell({
 
   // a notification with a userId belongs to that person only
   const myNotifications = state.notifications.filter(n => !n.userId || n.userId === currentUser.id);
+  const badges = navBadges(state, currentUser);
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
   const navItems = NAV_ITEMS.filter(item => item.roles.includes(currentUser.role));
@@ -33,7 +35,7 @@ export function AppShell({
     <div className="flex h-screen bg-slate-50 text-slate-900">
       <Sidebar
         navItems={navItems} currentPage={currentPage} onNavigate={onNavigate}
-        unreadCount={unreadCount} currentUser={currentUser} onLogout={onLogout}
+        badges={badges} currentUser={currentUser} onLogout={onLogout}
       />
 
       {/* Main content */}

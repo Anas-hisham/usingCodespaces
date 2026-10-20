@@ -4,14 +4,13 @@ import type { QueueCategory } from '@/domain/workflow/callClassification';
 import { LEAD_STATUS_STYLE } from '@/shared/ui/leadStatusStyles';
 
 // The categories a lead can sit in inside a touch point step. Each one is its own section.
-export const QUEUE_CATEGORY_ORDER: QueueCategory[] = ['new', 'discovery', 'lvm', 'nvm', 'meeting'];
+export const QUEUE_CATEGORY_ORDER: QueueCategory[] = ['new', 'discovery', 'lvm', 'nvm'];
 
 export const QUEUE_CATEGORY_STYLE: Record<QueueCategory, { label: string; color: string; dot: string }> = {
   new: LEAD_STATUS_STYLE.new,
   discovery: LEAD_STATUS_STYLE.discovery,
   lvm: { ...LEAD_STATUS_STYLE.lvm, label: 'LVM' },
   nvm: { ...LEAD_STATUS_STYLE.nvm, label: 'NVM' },
-  meeting: LEAD_STATUS_STYLE.arranged_meeting,
 };
 
 export const DUE_TONE_CLASS = {

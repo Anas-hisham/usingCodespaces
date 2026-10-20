@@ -68,9 +68,11 @@ export function AnalyticsPage() {
   const rangeText = range.from === range.to ? range.from : `${range.from} → ${range.to}`;
   const bestHour = [...hours].filter(h => h.calls >= 2).sort((a, b) => b.reachRate - a.reachRate || b.calls - a.calls)[0];
 
-  const funnelSteps: [string, number][] = [
-    ['Leads', f.leads], ['Contacted (at least one call)', f.contacted], ['Reached the right person', f.reached],
-    ['Meeting arranged', f.meetings], ['Sold', f.sold],
+  // What happened on the calls (the number of leads is deliberately not shown: only calls and their results matter)
+  const callResults: [string, number, string][] = [
+    ['No answer (NVM)', calls.nvm, 'bg-slate-400'],
+    ['Answered, wrong person / voicemail (LVM)', calls.lvm, 'bg-amber-500'],
+    ['Reached the right person (Discovery)', calls.discovery, 'bg-emerald-500'],
   ];
 
   if (!me) return null;
@@ -81,7 +83,7 @@ export function AnalyticsPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">{isAgent ? 'My Analytics' : 'Analytics'}</h1>
           <p className="text-sm text-slate-600">
-            {isAgent ? 'Your own numbers' : `${me.role === 'team_leader' ? 'Your team' : 'All your teams'} · ${scope.agents.length} agents`} · {leads.length} leads · {rangeText}
+            {isAgent ? 'Your own numbers' : `${me.role === 'team_leader' ? 'Your team' : 'All your teams'} · ${scope.agents.length} agents`} · {calls.calls} calls · {rangeText}
           </p>
         </div>
         <PeriodPicker preset={preset} custom={custom} onPreset={setPreset} onCustom={setCustom} />
@@ -95,9 +97,9 @@ export function AnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Answer rate" value={`${calls.answerRate}%`} hint={`${calls.lvm + calls.discovery} of ${calls.calls} calls got a reply`} />
-        <KpiCard label="Reach rate" value={`${calls.reachRate}%`} hint="Right person on the line (Discovery)" />
-        <KpiCard label="Lead conversion" value={`${pct(f.sold, f.leads)}%`} hint={`${f.sold} of ${f.leads} leads sold`} />
+        <KpiCard label="Calls made" value={String(calls.calls)} hint={`${calls.nvm} NVM · ${calls.lvm} LVM · ${calls.discovery} Discovery`} />
+        <KpiCard label="Answered" value={String(calls.lvm + calls.discovery)} hint={`Answer rate ${calls.answerRate}% of calls`} />
+        <KpiCard label="Reached (Discovery)" value={String(calls.discovery)} hint={`Reach rate ${calls.reachRate}% of calls`} />
         {preset === 'month'
           ? <KpiCard label="Sales this month" value={`${sales.length} / ${target}`} hint={`${pct(sales.length, target)}% of target`} />
           : <KpiCard label={`Sales ${periodName}`} value={String(sales.length)} hint="Monthly target is shown in 'This month'" />}
@@ -105,19 +107,22 @@ export function AnalyticsPage() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className={CARD_CLASS}>
-          <h2 className="text-sm font-semibold text-slate-900 mb-4">Lead funnel</h2>
+          <h2 className="text-sm font-semibold text-slate-900 mb-4">Call results</h2>
           <div className="space-y-3">
-            {funnelSteps.map(([name, n], i) => (
+            {callResults.map(([name, n, color]) => (
               <div key={name}>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-slate-700">{name}</span>
-                  <span className="text-slate-600">
-                    {n}{i > 0 && funnelSteps[i - 1][1] > 0 && <span className="text-slate-500"> · {pct(n, funnelSteps[i - 1][1])}% of previous step</span>}
-                  </span>
+                  <span className="text-slate-600">{n} · {pct(n, calls.calls)}% of calls</span>
                 </div>
-                <HorizontalBar value={n} max={f.leads} color={i === funnelSteps.length - 1 ? 'bg-emerald-500' : 'bg-blue-500'} />
+                <HorizontalBar value={n} max={calls.calls} color={color} />
               </div>
             ))}
+            {calls.calls === 0 && <div className="text-sm text-slate-500">No calls in this period.</div>}
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 flex gap-6 text-sm text-slate-600">
+            <span>Meetings arranged: <b className="text-slate-900">{f.meetings}</b></span>
+            <span>Sales: <b className="text-slate-900">{sales.length}</b></span>
           </div>
         </div>
 

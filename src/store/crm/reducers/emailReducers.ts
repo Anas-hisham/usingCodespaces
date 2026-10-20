@@ -29,7 +29,7 @@ export const emailReducers = {
    * Only the lead's CURRENT step is completed (and only if it is an open email step), never later ones.
    * [Name], [Company Name] and [Agent Name] in the subject/body are filled in per lead.
    */
-  sendBulkEmailForLeads(state: AppState, a: PayloadAction<{ leadIds: string[]; subject: string; body: string; senderId: string; senderName: string }>) {
+  sendBulkEmailForLeads(state: AppState, a: PayloadAction<{ leadIds: string[]; subject: string; body: string; senderId: string; senderName: string; templateType?: EmailLog['templateType'] }>) {
     const now = new Date().toISOString();
     const senderName = findCurrentUser(state)?.name ?? a.payload.senderName;
 
@@ -45,7 +45,7 @@ export const emailReducers = {
         id: emailId, leadId: id, leadName: l.companyName,
         to: l.email,
         subject, body: fillEmailTemplate(a.payload.body, l, senderName),
-        templateType: 'custom',
+        templateType: a.payload.templateType ?? 'custom',
         sentAt: now, sentBy: state.currentUserId, sentByName: senderName,
       });
 
@@ -62,10 +62,10 @@ export const emailReducers = {
       ));
     }
   },
-  sendStandaloneEmail(state: AppState, a: PayloadAction<{ to: string; subject: string; body: string; senderId: string; senderName: string }>) {
+  sendStandaloneEmail(state: AppState, a: PayloadAction<{ to: string; subject: string; body: string; senderId: string; senderName: string; templateType?: EmailLog['templateType']; leadName?: string }>) {
     state.emailLogs.unshift({
-      id: crypto.randomUUID(), leadId: '', leadName: '', to: a.payload.to,
-      subject: a.payload.subject, body: a.payload.body, templateType: 'custom',
+      id: crypto.randomUUID(), leadId: '', leadName: a.payload.leadName ?? '', to: a.payload.to,
+      subject: a.payload.subject, body: a.payload.body, templateType: a.payload.templateType ?? 'custom',
       sentAt: new Date().toISOString(), sentBy: a.payload.senderId, sentByName: a.payload.senderName,
     });
   },

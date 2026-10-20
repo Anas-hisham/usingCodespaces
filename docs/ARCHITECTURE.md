@@ -1,6 +1,6 @@
 # شكل المشروع (Architecture)
 
-المشروع React + Redux Toolkit. **مفيش داتا بيز حقيقية**: كل الداتا object واحد (`AppState`) جوه Redux، وبيتحفظ في `localStorage` تحت المفتاح `sales-mgmt-state-v4`.
+المشروع React + Redux Toolkit. **مفيش داتا بيز حقيقية**: كل الداتا object واحد (`AppState`) جوه Redux، وبيتحفظ في `localStorage` تحت المفتاح `sales-mgmt-state-v5`.
 
 ## الفولدرات
 
@@ -73,7 +73,8 @@ src/
 | `my-leads` | Leads بتاعت الـ agent | Agent |
 | `calendar` | Meetings | OM, TL, Agent |
 | `sales` | Sales | OM, TL, Agent, Quality |
-| `team-updates`, `tasks`, `email-center` | إعلانات / مهام / إيميلات | OM, TL, Agent |
+| `team-updates`, `tasks`, `email-center` | إعلانات / مهام / إيميلات | OM, TL, Agent (+ Quality للإعلانات والمهام) |
+| `tips` | نصايح من الـ Quality للـ agents | Quality, Agent |
 
 التفاصيل في `ROLES_AND_PAGES.md`. شاشة الدخول (`auth`) مفيهاش باسورد حقيقي: بتختار مستخدم من القايمة.
 
@@ -87,3 +88,9 @@ src/
 - `ROLES_AND_PAGES.md`: مين يشوف ويعمل إيه.
 - `SALES.md`: صفحة السيلز بالتفصيل (Top 5، تمييز الـ TL، More details).
 - `UI_DESIGN_SYSTEM.md`: الألوان والـ components.
+
+## تغييرات النسخة v5
+
+- الـ storage key بقى `v5` (الداتا التجريبية اتكبرت: 2 OM، 6 تيمز، 21 agent، 2 Quality، ~190 ليد مع مكالمات وتاريخ، ميتينجز وسيلز وupdates وtasks وtips). الداتا القديمة المحفوظة في v4 مش بتتقري.
+- Actions جديدة: `markUpdatesSeen`, `markTasksSeen`, `sendTips`, `acknowledgeTip`, `markTipsSeen`. الإشعارات بتتبعت من جوه الـ reducers (`helpers/notify.ts`) مش من الصفحات.
+- `updateRecipients` في `domain/updates` بيحدد مين المستلم لكل update (بدون الكاتب).
