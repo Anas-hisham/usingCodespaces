@@ -132,13 +132,6 @@ export function CreateMeetingModal({
                 />
               </div>
 
-              {(isTL || isQuality) && availableLeads.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Link to Lead (optional)</label>
-                  <LeadPicker leads={availableLeads} value={leadId} onChange={setLeadId} placeholder="Search a lead, then select it..." />
-                </div>
-              )}
-
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-slate-700">
