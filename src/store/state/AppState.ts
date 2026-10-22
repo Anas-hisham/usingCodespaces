@@ -1,5 +1,5 @@
 /** The ONE object that holds all the data of the app (this is what is saved in localStorage). */
-import type { EmailLog, EmailTemplate, Escalation, Lead, Meeting, Notification, Sale, Task, Team, TeamUpdate, Tip, User, Workflow } from '@/domain/types';
+import type { EmailLog, EmailTemplate, Lead, Meeting, Notification, Sale, Task, Team, TeamUpdate, Tip, User, Workflow } from '@/domain/types';
 
 export interface AppState {
   currentUserId: string;
@@ -15,5 +15,4 @@ export interface AppState {
   notifications: Notification[];
   sales: Sale[];
   tips: Tip[];
-  escalations: Escalation[];
 }

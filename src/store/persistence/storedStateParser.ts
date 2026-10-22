@@ -6,7 +6,7 @@ import type { AppState } from '@/store/state/AppState';
 
 const ARRAY_KEYS = [
   'users', 'teams', 'workflows', 'leads', 'meetings', 'updates', 'tasks',
-  'emailTemplates', 'emailLogs', 'notifications', 'sales', 'tips', 'escalations',
+  'emailTemplates', 'emailLogs', 'notifications', 'sales', 'tips',
 ] as const;
 
 /**
@@ -23,10 +23,6 @@ export function parseStoredState(raw: string): AppState | null {
     for (const k of ARRAY_KEYS) if (!Array.isArray(bag[k])) bag[k] = fresh[k];
     if (typeof state.currentUserId !== 'string') state.currentUserId = '';
 
-    // The built-in campaigns got a new touch point sequence. Saved copies the Admin never edited (no updatedAt) are
-    // replaced by the new ones. Leads already in progress keep the touch points they were given.
-    const builtIn = new Map(fresh.workflows.map(w => [w.campaignCode, w]));
-    state.workflows = state.workflows.map(w => (!w.updatedAt && builtIn.has(w.campaignCode) ? builtIn.get(w.campaignCode)! : w));
     // a lead missing one of its lists would crash every screen that reads it
     state.leads = state.leads.map(l => ({
       ...l,
@@ -45,16 +41,8 @@ export function parseStoredState(raw: string): AppState | null {
     state.tasks = state.tasks.map(t => ({ ...t, seenBy: t.seenBy ?? everyone, completedBy: t.completedBy ?? [] }));
     // Old broadcast notifications (no owner) reached people who had nothing to do with them: drop them
     state.notifications = state.notifications.filter(n => !!n.userId);
-    // Older saved data: add the Quality users so nothing breaks after an upgrade.
+    // Older saved data: add the Quality user so nothing breaks after an upgrade.
     if (!state.users.some(u => u.role === 'quality')) state.users.push(...fresh.users.filter(u => u.role === 'quality'));
-    // Line of business + "which Quality follows which agent" did not exist before: take them from the demo people with the same id.
-    for (const q of fresh.users.filter(u => u.role === 'quality')) if (!state.users.some(u => u.id === q.id)) state.users.push(q);
-    const freshById = new Map(fresh.users.map(u => [u.id, u]));
-    state.users = state.users.map(u => {
-      const f = freshById.get(u.id);
-      if (!f) return u;
-      return { ...u, lob: u.lob ?? f.lob, qualityId: u.qualityId ?? f.qualityId };
-    });
     // same for the Admin (the only role that creates leads)
     if (!state.users.some(u => u.role === 'admin')) state.users.unshift(...fresh.users.filter(u => u.role === 'admin'));
     return state;

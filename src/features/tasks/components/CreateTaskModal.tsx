@@ -22,14 +22,14 @@ export function CreateTaskModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up max-h-modal overflow-y-auto scrollbar-thin">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">New Task</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center">
             <X className="w-4 h-4 text-slate-600" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Title</label>
             <input
@@ -90,7 +90,7 @@ export function CreateTaskModal({
             )}
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
           <button
             onClick={() => {

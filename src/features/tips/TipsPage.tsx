@@ -59,7 +59,7 @@ export function TipsPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Tips</h2>
           <p className="text-sm text-slate-600">{isQuality ? 'Send advice to agents to improve their calls' : 'Advice from the Quality team'}</p>
@@ -99,7 +99,7 @@ export function TipsPage() {
 
       {showSend && (
         <SendTipModal
-          teams={state.teams.map(t => ({ ...t, agentIds: t.agentIds.filter(id => state.users.find(u => u.id === id)?.qualityId === me.id) })).filter(t => t.agentIds.length > 0)} users={state.users} onClose={() => setShowSend(false)}
+          teams={state.teams} users={state.users} onClose={() => setShowSend(false)}
           onSend={(agentIds, title, content) => { dispatch(sendTips({ agentIds, title, content })); setShowSend(false); }}
         />
       )}

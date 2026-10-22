@@ -38,17 +38,17 @@ export function CreateMeetingModal({
   const availableLeads = useMemo(() => {
     if (isAgent) return state.leads.filter(l => l.agentId === currentUser.id && !l.removedFromQueue && !l.stopped && !l.expiredAt);
     if (isTL) return state.leads.filter(l => myTeam?.agentIds.includes(l.agentId) && !l.removedFromQueue && !l.stopped && !l.expiredAt);
-    if (isQuality) return state.leads.filter(l => !!l.agentId && state.users.find(u => u.id === l.agentId)?.qualityId === currentUser.id && !l.removedFromQueue && !l.stopped && !l.expiredAt);   // the agents Quality follows
+    if (isQuality) return state.leads.filter(l => !!l.agentId && !l.removedFromQueue && !l.stopped && !l.expiredAt);
     return [];
   }, [state.leads, currentUser, isAgent, isTL, isQuality, myTeam]);
 
   const availableParticipants = useMemo(() => {
     if (isAgent) return [];
     if (isTL) return state.users.filter(u => myTeam?.agentIds.includes(u.id));
-    if (isQuality) return state.users.filter(u => u.role === 'agent' && u.qualityId === currentUser.id);
+    if (isQuality) return state.users.filter(u => u.role === 'agent');
     if (isOM) {
       const myLeaderIds = state.teams.filter(t => t.managerId === currentUser.id).map(t => t.leaderId);
-      return state.users.filter(u => (u.role === 'quality' && u.lob === currentUser.lob) || (u.role === 'team_leader' && myLeaderIds.includes(u.id)));   // my team leaders + Quality
+      return state.users.filter(u => u.role === 'quality' || (u.role === 'team_leader' && myLeaderIds.includes(u.id)));   // my team leaders + Quality
     }
     return [];
   }, [state.users, state.teams, currentUser, isTL, isOM, isQuality, myTeam]);
@@ -103,15 +103,15 @@ export function CreateMeetingModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up max-h-[90vh] overflow-y-auto scrollbar-thin">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up max-h-modal overflow-y-auto scrollbar-thin">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 className="text-lg font-bold text-slate-900">{prefill?.purpose === 'reschedule' ? 'Reschedule Meeting' : prefill ? 'Schedule Another Meeting' : 'Schedule Meeting'}</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center">
             <X className="w-4 h-4 text-slate-600" />
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-5 space-y-4">
           {isAgent && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Lead</label>
@@ -180,7 +180,7 @@ export function CreateMeetingModal({
             </>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Date</label>
               <input
@@ -230,7 +230,7 @@ export function CreateMeetingModal({
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
           <button
             onClick={handleCreate}

@@ -28,7 +28,22 @@ Tailwind فقط. الـ tokens الأساسية موجودة في أول `src/in
 
 ## Breakpoints
 
-mobile-first: `sm 640` · `md 768` · `lg 1024`. الـ Sidebar بيتحوّل لأيقونات تحت `lg`.
+mobile-first: `sm 640` · `md 768` · `lg 1024`.
+
+| الشاشة | الـ Sidebar |
+|---|---|
+| موبايل (تحت `md`) | مخفي. زرار ☰ في الـ header بيفتحه كـ drawer فوق الصفحة (overlay + Escape + قفل أوتوماتيك بعد اختيار صفحة) |
+| تابلت (`md` → `lg`) | شريط أيقونات `w-[72px]` |
+| ديسكتوب (`lg`+) | كامل `w-60` |
+
+قواعد الـ responsive في أي كود جديد:
+- الصفحة: `p-4 sm:p-6`. الـ modal/drawer: padding `px-4 sm:px-6`.
+- الـ modal لازم `max-h-modal overflow-y-auto` (utility في `index.css` بتستخدم `dvh`). الارتفاع الكامل للشاشة بـ `h-app` / `min-h-app` مش `h-screen`.
+- أي grid بأكتر من عمودين يبدأ بـ `grid-cols-1` أو `grid-cols-2` ويكبر بـ `sm:`/`lg:`. حقول التاريخ/الوقت جنب بعض تبقى `grid-cols-1 sm:grid-cols-2`.
+- الصف اللي فيه نص + أزرار: `flex-col sm:flex-row` أو `flex-wrap` — الأزرار متتضغطش بجنب النص على موبايل.
+- الجداول: `overflow-x-auto` + `min-w-[...]` على الـ `<table>`. لو الجدول صفحة أساسية للـ agent (زي My Leads) اعرضه كـ cards تحت `md`.
+- الـ dropdown اللي عرضه ثابت (زي الإشعارات) يبقى `fixed left-2 right-2` على الموبايل و`sm:absolute sm:w-80` من `sm`.
+- الـ inputs على الموبايل 16px (قاعدة في `index.css`) عشان iOS ميعملش zoom.
 
 ## Collapsible (السهم اللي بيفتح ويقفل)
 

@@ -21,7 +21,7 @@ export function NotificationsMenu({ notifications, unreadCount, onNavigate }: No
         onClick={() => setNotifOpen(!notifOpen)}
         aria-label="Notifications"
         aria-expanded={notifOpen}
-        className="relative w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+        className="relative w-10 h-10 sm:w-9 sm:h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
       >
         <Bell className="w-[18px] h-[18px] text-slate-600" />
         {unreadCount > 0 && (
@@ -34,7 +34,7 @@ export function NotificationsMenu({ notifications, unreadCount, onNavigate }: No
       {notifOpen && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setNotifOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-200 z-40 animate-slide-up">
+          <div className="fixed left-2 right-2 top-[4.25rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 bg-white rounded-xl shadow-lg border border-slate-200 z-40 animate-slide-up">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <span className="font-semibold text-sm text-slate-900">Notifications</span>
               <button
@@ -44,7 +44,7 @@ export function NotificationsMenu({ notifications, unreadCount, onNavigate }: No
                 Mark all read
               </button>
             </div>
-            <div className="max-h-80 overflow-y-auto scrollbar-thin">
+            <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto scrollbar-thin">
               {notifications.length === 0 && (
                 <div className="px-4 py-8 text-center text-sm text-slate-500">No notifications</div>
               )}

@@ -68,7 +68,7 @@ src/
 | `lead-pool` | Lead Pool (الأدمن يضيف/يمسح الليدز) | Admin |
 | `dashboard` | Dashboard (3 نسخ: Agent / TL / OM) | OM, TL, Agent |
 | `analytics` | Analytics (KPIs, funnel, حسب campaign/agent/ساعة) | OM, TL, Agent |
-| `teams` | Teams (الـ Admin بس ينقل agent بين التيمز ويغيّر الـ Quality) | الكل |
+| `teams` | Teams (OM ينقل agent بين التيمز) | الكل |
 | `work-queue` | Work Queue + `take-leads` (استلام من الـ pool) | Agent |
 | `my-leads` | Leads بتاعت الـ agent | Agent |
 | `calendar` | Meetings | OM, TL, Agent |
@@ -80,7 +80,7 @@ src/
 
 ## أسماء الـ actions الناقصة من الجدول فوق
 
-`moveAgentToTeam` (Admin بس) · `editCallLog` · `deleteLeadsAsAdmin` (Admin بس) · `updateMeeting` · `markNotificationRead` / `markAllNotificationsRead` / `addNotification` · `resetToSeedData` (ترجّع الداتا التجريبية).
+`moveAgentToTeam` (OM بس) · `editCallLog` · `deleteLeadsAsAdmin` (Admin بس) · `updateMeeting` · `markNotificationRead` / `markAllNotificationsRead` / `addNotification` · `resetToSeedData` (ترجّع الداتا التجريبية).
 
 ## ملفات التوثيق
 

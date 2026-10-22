@@ -2,7 +2,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { normalizeLeadCode } from '@/domain/lead/leadCode';
 import { dropTakenLeadCodes } from '@/domain/lead/leadImport';
-import { daysUntilTakeable, isInPool } from '@/domain/lead/leadPool';
+import { isInPool } from '@/domain/lead/leadPool';
 import type { Lead, LeadAssignment } from '@/domain/types';
 import { findCurrentUser, findLeadById, leadsHoldingTheirCode } from '@/store/crm/helpers/currentUserGuards';
 import { createUserHistoryEntry } from '@/store/crm/helpers/leadHistory';
@@ -36,8 +36,7 @@ export const leadPoolReducers = {
   /**
    * An agent takes leads from the pool. Each lead becomes theirs and its workflow starts in their work queue.
    * A lead the previous agent removed comes back as a new round (the old touch points are archived, nothing is lost).
-   * Re-checked here: it must still be in the pool (two agents can never end up with the same id), and a lead another agent
-   * called / emailed less than 15 days ago is refused.
+   * Re-checked here: it must still be in the pool, so two agents can never end up with the same id.
    */
   takeLeadsFromPool(state: AppState, a: PayloadAction<string[]>) {
     const actor = findCurrentUser(state);
@@ -49,7 +48,6 @@ export const leadPoolReducers = {
       if (!l || !isInPool(l)) continue;
       const key = normalizeLeadCode(l.leadCode);
       if (taken.has(key)) continue;                                   // somebody else already holds this id
-      if (daysUntilTakeable(l, actor.id, Date.now()) > 0) continue;  // another agent worked on it less than 15 days ago
       const wf = state.workflows.find(w => w.campaignCode === l.campaignCode);
       if (!wf) continue;                                              // no workflow for its campaign: nothing to start
 

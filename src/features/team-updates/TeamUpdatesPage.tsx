@@ -47,7 +47,7 @@ export function TeamUpdatesPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Team Updates</h2>
           <p className="text-sm text-slate-600">

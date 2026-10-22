@@ -1,7 +1,7 @@
 import { Plus, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { createPoolLead } from '@/domain/lead/createPoolLead';
-import { ADMIN_PASTE_COLUMNS, parseAdminRows } from '@/domain/lead/leadImport';
+import { parseAdminRows } from '@/domain/lead/leadImport';
 import type { Lead, Workflow } from '@/domain/types';
 import { campaignLabel } from '@/domain/workflow/campaignLabel';
 import { LeadImportModalShell } from '@/features/lead-pool/components/LeadImportModalShell';
@@ -13,7 +13,7 @@ export function PasteLeadsModal({ workflows, existing, onClose, onAdd, adminId, 
   const [campaign, setCampaign] = useState(workflows[0]?.campaignCode || '');
   const [text, setText] = useState('');
   const [added, setAdded] = useState(0);
-  const parsed = useMemo(() => parseAdminRows(text, existing, campaign), [text, existing, campaign]);
+  const parsed = useMemo(() => parseAdminRows(text, existing, workflows, campaign), [text, existing, workflows, campaign]);
 
   const handleAdd = () => {
     if (!parsed.accepted.length) return;
@@ -35,21 +35,20 @@ export function PasteLeadsModal({ workflows, existing, onClose, onAdd, adminId, 
         </button>
       </>}>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">Default campaign</label>
         <select value={campaign} onChange={e => setCampaign(e.target.value)} className={TEXT_INPUT_CLASS}>
           {workflows.map(w => <option key={w.id} value={w.campaignCode}>{campaignLabel(workflows, w.campaignCode)}</option>)}
         </select>
-        <p className="text-xs text-slate-500 mt-1">Every lead you paste goes into this campaign.</p>
+        <p className="text-xs text-slate-500 mt-1">Used for every row that has no campaign column.</p>
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1.5"><Upload className="w-3.5 h-3.5 inline mr-1" />Paste lead rows</label>
         <div className="text-xs text-slate-500 mb-2 bg-slate-50 rounded-lg p-2">
-          {ADMIN_PASTE_COLUMNS.join(' [Tab] ')}
-          <br />One lead per line. Everything is required except the phone, which is the last column and can be left out.
-          The ID must be letters and numbers only and must not exist yet.
+          Lead ID [Tab] Company [Tab] Contact [Tab] Phone [Tab] Email [Tab] Campaign (optional)
+          <br />One lead per line. The ID must be letters and numbers only and must not exist yet.
         </div>
         <textarea value={text} onChange={e => setText(e.target.value)} rows={8}
-          placeholder={'LD101\tTechCorp\tJohn Smith\tjohn@techcorp.com\t+20 100 111 2222\nLD102\tDataSys\tJane Doe\tjane@datasys.com'}
+          placeholder={'LD101\tTechCorp\tJohn Smith\t+20 100 111 2222\tjohn@techcorp.com\tACT-001\nLD102\tDataSys\tJane Doe\t+20 101 333 4444\tjane@datasys.com\tRET-002'}
           className={`${TEXT_INPUT_CLASS} font-mono resize-none`} />
         {added > 0 && <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{added} lead{added === 1 ? '' : 's'} added to the pool. The rows below need fixing.</p>}
         {text.trim() && (

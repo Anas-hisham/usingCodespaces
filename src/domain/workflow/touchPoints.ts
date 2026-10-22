@@ -47,21 +47,5 @@ export function lastTouchTimestamp(lead: Lead): number | null {
   return best;
 }
 
-/**
- * The last time ANYONE contacted this lead by call or email: a completed touch point, a logged call, or a sent email.
- * Used by the "recently worked" rule that keeps another agent from taking a lead right after it was worked.
- */
-export function lastContactTimestamp(lead: Lead): number | null {
-  let best = lastTouchTimestamp(lead);
-  const consider = (iso: string | null | undefined) => {
-    if (!iso) return;
-    const t = new Date(iso).getTime();
-    if (!isNaN(t) && (best === null || t > best)) best = t;
-  };
-  for (const c of lead.callLogs) consider(c.timestamp);
-  for (const h of lead.history) if (h.action === 'email_sent' || h.action === 'auto_email_sent') consider(h.timestamp);
-  return best;
-}
-
 /** "1: CALL" / "2: EMAIL" */
 export const stepLabel = (order: number, type: string) => `${order + 1}: ${type.toUpperCase()}`;

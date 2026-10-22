@@ -90,7 +90,7 @@ export function TeamLeaderDashboard({ currentUser, state, dispatch }: {
                   </div>
                   <span className="text-xs font-semibold text-slate-700 shrink-0">{todayCalls.total}/{target}</span>
                 </div>
-                <div className="grid grid-cols-6 gap-2 text-center">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
                   <div className="bg-blue-50 rounded-lg py-1.5">
                     <div className="text-sm font-bold text-blue-700">{todayCalls.total}</div>
                     <div className="text-[11px] text-slate-600">Calls</div>

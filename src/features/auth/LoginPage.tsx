@@ -23,7 +23,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-app flex bg-slate-50">
       {/* Left brand panel */}
       <div className="hidden lg:flex lg:w-[46%] bg-slate-950 relative overflow-hidden">
         <div className="absolute -top-32 -left-24 w-[26rem] h-[26rem] bg-blue-600/30 rounded-full blur-3xl" />
@@ -78,7 +78,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
       </div>
 
       {/* Right login panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-10">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">

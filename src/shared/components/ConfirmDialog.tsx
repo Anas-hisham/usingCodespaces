@@ -23,7 +23,7 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 animate-slide-up p-6">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 animate-slide-up p-5 sm:p-6 max-h-modal overflow-y-auto">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${danger ? 'bg-rose-100' : 'bg-amber-100'}`}>
           <AlertTriangle className={`w-5 h-5 ${danger ? 'text-rose-600' : 'text-amber-600'}`} />
         </div>

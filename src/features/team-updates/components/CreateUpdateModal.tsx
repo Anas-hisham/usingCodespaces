@@ -19,9 +19,9 @@ export function CreateUpdateModal({
   const [content, setContent] = useState('');
 
   const audienceOptions: { value: UpdateAudience; label: string; show: boolean }[] = [
-    { value: 'all', label: 'Everyone in my line of business (TLs, agents, Quality)', show: isOM },
-    { value: 'team_leaders', label: 'My Team Leaders only', show: isOM },
-    { value: 'quality', label: 'My line of business Quality only', show: isOM },
+    { value: 'all', label: 'Everyone (all TLs, agents and Quality)', show: isOM },
+    { value: 'team_leaders', label: 'All Team Leaders only', show: isOM },
+    { value: 'quality', label: 'Quality only', show: isOM },
     { value: 'specific_team', label: 'My Team Agents', show: !isOM },   // the OM talks to everyone / TLs / Quality, never to one team
   ];
 
@@ -46,14 +46,14 @@ export function CreateUpdateModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up max-h-modal overflow-y-auto scrollbar-thin">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">New Update</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center">
             <X className="w-4 h-4 text-slate-600" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Audience</label>
             <div className="space-y-2">
@@ -100,7 +100,7 @@ export function CreateUpdateModal({
              'The agents of your team will see this'}
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
           <button
             onClick={handleCreate}

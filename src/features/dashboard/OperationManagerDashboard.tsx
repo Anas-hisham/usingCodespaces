@@ -65,7 +65,7 @@ export function OperationManagerDashboard({ state }: { state: AppState }) {
                   </div>
                   <span className="text-xs font-semibold text-slate-700 shrink-0">{todayCalls.total}/{teamTarget} ({Math.round(pct)}%)</span>
                 </div>
-                <div className="grid grid-cols-6 gap-2 text-center">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
                   <div className="bg-blue-50 rounded-lg py-1.5">
                     <div className="text-sm font-bold text-blue-700">{todayCalls.total}</div>
                     <div className="text-[11px] text-slate-600">Calls</div>
@@ -104,7 +104,7 @@ export function OperationManagerDashboard({ state }: { state: AppState }) {
                       return (
                         <li key={agent.id} className="flex items-center gap-3">
                           <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0" style={{ backgroundColor: agent.color }}>{agent.initials}</div>
-                          <span className="text-xs text-slate-800 w-32 truncate">{agent.name}</span>
+                          <span className="text-xs text-slate-800 w-24 sm:w-32 shrink-0 truncate">{agent.name}</span>
                           <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                             <div className={`h-full rounded-full ${apct >= 100 ? 'bg-emerald-500' : 'bg-blue-600'}`} style={{ width: `${Math.max(apct, 2)}%` }} />
                           </div>

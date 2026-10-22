@@ -18,7 +18,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+      <div className="min-h-app flex items-center justify-center bg-slate-50 px-6">
         <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center">
           <div className="w-11 h-11 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-3">
             <AlertTriangle className="w-5 h-5 text-rose-600" />

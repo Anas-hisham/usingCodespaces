@@ -95,6 +95,11 @@
     background: transparent;
   }
 
+  /* Phones: 100vh is taller than the visible area when the browser bars show, dvh is exact (vh stays as fallback) */
+  .h-app { height: 100vh; height: 100dvh; }
+  .min-h-app { min-height: 100vh; min-height: 100dvh; }
+  .max-h-modal { max-height: 90vh; max-height: 90dvh; }
+
   .animate-fade-in {
     animation: fadeIn 0.18s ease-out;
   }
@@ -140,5 +145,22 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Touch devices: faster taps (no double-tap-zoom delay) */
+button, a, select, input, textarea, [role='button'] {
+  touch-action: manipulation;
+}
+
+/*
+ * Phones: iOS Safari zooms the whole page when a field with text smaller than 16px gets focus.
+ * Keep form fields at 16px on small screens so typing never zooms/shifts the layout.
+ */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }

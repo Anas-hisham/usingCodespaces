@@ -13,8 +13,6 @@ export interface Workflow {
   campaignCode: string;
   name: string;
   touchPoints: TouchPointTemplate[];
-  /** Set when the Admin created / edited the campaign. A built-in campaign that was never edited has none. */
-  updatedAt?: string;
 }
 
 export type TouchPointStatus = 'pending' | 'overdue' | 'completed' | 'skipped';

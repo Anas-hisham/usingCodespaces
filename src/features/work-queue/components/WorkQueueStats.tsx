@@ -9,7 +9,7 @@ interface WorkQueueStatsProps {
 /** The five numbers at the top of the work queue. */
 export function WorkQueueStats({ todayTotal, overdueCount, nextTotal, stoppedTotal, meetingsTodayCount }: WorkQueueStatsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
       <div className="bg-white rounded-xl border border-blue-200 p-4">
         <div className="text-sm text-slate-600 mb-1">Today</div>
         <div className="text-2xl font-bold text-blue-600">{todayTotal}</div>

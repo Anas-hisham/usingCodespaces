@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { Team, User } from '@/domain/types';
 import { UserAvatar } from '@/shared/components/UserAvatar';
 
-/** The Admin picks the new team for one agent. Only the team changes - the agent keeps every lead and all the data. */
+/** The Operation Manager picks the new team for one agent. Only the team changes - the agent keeps every lead and all the data. */
 export function MoveAgentModal({ agent, fromTeam, teams, users, onMove, onClose }: {
   agent: User; fromTeam: Team | undefined; teams: Team[]; users: User[];
   onMove: (toTeamId: string) => void; onClose: () => void;
@@ -16,14 +16,14 @@ export function MoveAgentModal({ agent, fromTeam, teams, users, onMove, onClose 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Move agent">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up max-h-modal overflow-y-auto scrollbar-thin">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">Move agent to another team</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center" aria-label="Close">
             <XCircle className="w-4 h-4 text-slate-600" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-5 space-y-4">
           <div className="flex items-center gap-3">
             <UserAvatar user={agent} />
             <div>
@@ -47,7 +47,7 @@ export function MoveAgentModal({ agent, fromTeam, teams, users, onMove, onClose 
             and continues under {to ? leaderOf(to) : 'the new Team Leader'}.
           </p>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
           <button
             onClick={() => to && onMove(to.id)} disabled={!to}

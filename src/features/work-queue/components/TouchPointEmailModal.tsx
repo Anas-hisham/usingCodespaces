@@ -28,8 +28,8 @@ export function TouchPointEmailModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-slide-up max-h-[90vh] overflow-y-auto scrollbar-thin">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-slide-up max-h-modal overflow-y-auto scrollbar-thin">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Send Email</h2>
             <p className="text-sm text-slate-600">{lead.companyName} — {lead.contactName}</p>
@@ -39,7 +39,7 @@ export function TouchPointEmailModal({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-5 space-y-4">
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-500">Start from:</span>
             {([['custom', 'Blank'], [suggestedType, suggestedType === 'discovery' ? 'Discovery template' : 'No Response template']] as const).map(([val, label]) => (
@@ -85,7 +85,7 @@ export function TouchPointEmailModal({
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
             Cancel
           </button>

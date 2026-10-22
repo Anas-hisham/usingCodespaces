@@ -20,7 +20,7 @@ erDiagram
 ```
 
 - **الليد هو قلب النظام**: الـ touch points والـ call logs والـ history كلهم **جوه** object الليد نفسه (مش جداول منفصلة).
-- `Workflow` = **القالب** (Activation و Retention دلوقتي 7 خطوات: Email فوراً ← Call بعد يوم ← Email بعد يوم ← Call بعد يومين ← Email بعد يومين ← Call بعد يومين ← Email فوراً). الـ Admin يقدر يعمل campaign جديدة ويحدد الخطوات ونوعها والأيام بينها من صفحة Campaigns، والتعديل بيسري على الليدز اللي بتتاخد بعده بس. كل ليد ياخد **نسخة** منه عند الاستلام.
+- `Workflow` = **القالب** (مثلاً Activation: Call → Email → Call → Email ...). كل ليد ياخد **نسخة** منه عند الاستلام.
 - الربط مع الـ workflow بـ `campaignCode` (`ACT-001`, `RET-002`).
 
 ## 2) شكل الليد (مختصر)
@@ -75,9 +75,7 @@ flowchart TD
 | **Agent يعمل Remove** (`removeLeadFromAgentQueue`) | `removedFromQueue=true`, `stopped=true`. الليد يرجع للـ pool والـ id بتاعه يتحرر. الـ history والمكالمات محفوظين. | على الليد نفسه |
 | **حد تاني ياخده من الـ pool** (`takeLeadsFromPool`) | شغل الـ agent القديم بيتجمّد في `previousAssignments` (round 1)، والليد يبدأ `round = 2` بـ touch points جديدة تماماً. | نسخة القديم في `previousAssignments` |
 | **TL أو OM يحوّله** (`transferLeadToAgent`) | نفس الفكرة: تجميد القديم، round جديد، workflow جديد للـ agent الجديد. الصلاحية: OM أو TL بتاع الـ agent اللي ماسكه بس، والمستلم لازم agent. | `previousAssignments` + `history.transfer` فيها كام خطوة اتعملت (مثلاً 3/6) |
-| **قاعدة الـ 15 يوم** (`runLeadExpiryJob`) | لو مفيش تقدم 15 يوم تقويمي (ولا meeting جاي ولا سيلة): الليد يطلع من workflow الـ agent ويرجع **حر** في الـ pool (`removedFromQueue=true`، الـ id يتحرر، التاريخ محفوظ). الليدز القديمة اللي عليها `expiredAt` لسه بتتحول بالـ TL. | على الليد |
-| **خلص كل الـ touch points** (`runWorkflowFinishedJob`) | لما كل الخطوات تتعمل (أو تتعمل skip) الليد يطلع من الـ workflow ويرجع حر في الـ pool، إلا لو فيه meeting جاي أو سيلة. | على الليد |
-| **قاعدة "اتشغّل من قريب"** (`daysUntilTakeable`) | ليد حر لكن آخر مكالمة/إيميل عليه من agent **تاني** كانت من أقل من 15 يوم: مينفعش يتاخد (`takeLeadsFromPool` بيرفضه والـ UI بيقول فاضل كام يوم). الـ agent اللي اشتغل عليه آخر مرة ممكن ياخده تاني. | — |
+| **قاعدة الـ 15 يوم** (`runLeadExpiryJob`) | لو مفيش تقدم 15 يوم تقويمي (ولا meeting جاي): `expiredAt` يتحط ويطلع من queue الـ agent مستني الـ TL يعيد توزيعه. | `expiredAt` |
 | **Stop / Resume** | `stopped=true/false`، وبيحدّث `lastActivityAt` (بيصفّر عدّاد الـ 15 يوم). Expired مفيش resume، بس transfer. | على الليد |
 | **Delete permanently** | بيتمسح، ومتاح بس لو مفيش sale عليه. الـ meetings بتاعته بتتلغي. | — |
 

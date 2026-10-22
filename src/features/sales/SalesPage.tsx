@@ -1,5 +1,4 @@
 import { ChevronDown, ChevronLeft, ChevronRight, Crown, Plus, Target, Trash2, Trophy } from 'lucide-react';
-import { lobOfTeam } from '@/domain/org/orgRules';
 import { useMemo, useState } from 'react';
 import { topAgentsOfMonth } from '@/domain/sales/salesLeaderboard';
 import { saleTypeConfig } from '@/domain/sales/saleTypes';
@@ -54,8 +53,8 @@ export function SalesPage() {
     if (isAgent) return groups.map(g => ({ ...g, agents: g.agents.filter(a => a.id === me.id) })).filter(g => g.agents.length > 0);
     if (isTL) return groups.filter(g => g.team.leaderId === me.id);
     if (isOM) return groups.filter(g => g.team.managerId === me.id);
-    return groups.filter(g => lobOfTeam(state.users, g.team) === me.lob);   // quality: the teams of its line of business
-  }, [groups, me, isAgent, isTL, isOM, state.users]);
+    return groups;                                      // quality: the whole company
+  }, [groups, me, isAgent, isTL, isOM]);
 
   const scopeAgentIds = useMemo(() => new Set(scopeGroups.flatMap(g => g.agents.map(a => a.id))), [scopeGroups]);
 
@@ -71,7 +70,6 @@ export function SalesPage() {
   const canSeeDetails = (agentId: string) => {
     if (isAgent) return agentId === me.id;
     if (isTL) return groups.some(g => g.team.leaderId === me.id && g.agents.some(a => a.id === agentId));
-    if (isQuality) return state.users.find(u => u.id === agentId)?.qualityId === me.id;   // only the agents it follows
     return true;
   };
 
@@ -279,7 +277,7 @@ export function SalesPage() {
                   </div>
                   {sameLead > 1 && <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700 shrink-0">{sameLead} sales on this lead</span>}
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0 ${cfg.chip}`}>{cfg.label}</span>
-                  {isQuality && state.users.find(u => u.id === s.agentId)?.qualityId === me.id && (
+                  {isQuality && (
                     <button
                       onClick={() => ask(
                         { title: 'Delete this sale?', message: <>The {s.saleType} sale for <b>{s.leadName}</b> will be deleted. This can’t be undone.</>, confirmLabel: 'Delete', tone: 'danger' },

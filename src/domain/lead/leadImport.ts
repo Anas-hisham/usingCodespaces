@@ -123,57 +123,52 @@ export interface ParsedAdminRow extends ParsedLeadRow { campaignCode: string }
 
 export interface ParseAdminResult { accepted: ParsedAdminRow[]; rejected: RejectedRow[] }
 
-/** The columns of an Admin paste, in this order. Only the phone (the last column) may be left out. */
-export const ADMIN_PASTE_COLUMNS = ['Lead ID', 'Company name', 'Full name', 'Email', 'Phone (optional)'] as const;
-
-/** A copied header line: "Lead ID", "leads_id", "lead code", "id" ... */
-const HEADER_RE = /^(leads?[\s_-]*)?(code|id)$/i;
-
 /**
- * Admin paste:  Lead ID | Company name | Full name | Email | Phone
- *  - Lead ID, company, full name and email are required; the phone is optional and is always the LAST column
- *    (leave it out, or leave the last cell empty).
- *  - Every row goes to the one campaign chosen on the screen.
- *  - Every id is checked against ALL leads of the system (an agent's, a pool lead, or a removed lead that is back in the pool).
+ * Admin paste: Lead ID | Company | Contact | Phone | Email | Campaign (code or name; optional, falls back to the default).
+ * Every id is checked against ALL leads of the system (an agent's, a pool lead, or a removed lead that is back in the pool).
  */
 export function parseAdminRows(
   text: string,
   existingCodes: { leadCode: string }[],
-  campaignCode: string,
+  workflows: { campaignCode: string; name: string }[],
+  defaultCampaign: string,
 ): ParseAdminResult {
   const taken = new Set(existingCodes.map(l => normalizeLeadCode(l.leadCode)));
   const seen = new Set<string>();
   const accepted: ParsedAdminRow[] = [];
   const rejected: RejectedRow[] = [];
+  const campaignOf = (v: string) => {
+    const q = v.trim().toLowerCase();
+    return workflows.find(w => w.campaignCode.toLowerCase() === q || w.name.toLowerCase() === q)?.campaignCode;
+  };
 
   let dataRows = 0;
   text.split(/\r?\n/).forEach((rawLine, i) => {
     if (!rawLine.trim()) return;
     const line = i + 1;
     const parts = splitPastedRow(rawLine);
-    while (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();      // empty cells at the end (Excel adds them)
     const code = cleanLeadCode(parts[0] ?? '');
-    if (dataRows === 0 && HEADER_RE.test(code)) return;
+    if (dataRows === 0 && /^(lead\s*)?(code|id)$/i.test(code)) return;
     const reject = (reason: string) => rejected.push({ line, raw: rawLine, leadCode: code, reason });
 
     dataRows++;
     if (dataRows > MAX_ROWS_PER_IMPORT) return reject(`Over the limit of ${MAX_ROWS_PER_IMPORT} leads per import`);
-    if (!code) return reject('Lead ID is missing');
+    if (!code) return reject('Lead code is missing');
     if (!isValidLeadCode(code)) return reject('Lead ID must contain letters and numbers only');
     const key = normalizeLeadCode(code);
     if (seen.has(key)) return reject('Repeated in this paste');
     if (taken.has(key)) return reject('This lead ID already exists');
-
-    if (parts.length > ADMIN_PASTE_COLUMNS.length) return reject(`Too many columns - expected: ${ADMIN_PASTE_COLUMNS.join(', ')}`);
-    const company = parts[1] ?? '', fullName = parts[2] ?? '', email = parts[3] ?? '', phone = parts[4] ?? '';
-    if (!company) return reject('Company name is missing');
-    if (!fullName) return reject('Full name is missing');
-    if (!email) return reject('Email is missing');
-    if (!isValidEmail(email)) return reject(`Invalid email "${email}"`);
-    if (!campaignCode) return reject('Choose a campaign first');
+    const email = parts[4] ?? '';
+    if (email && !isValidEmail(email)) return reject(`Invalid email "${email}"`);
+    const campaignCell = (parts[5] ?? '').trim();
+    const campaignCode = campaignCell ? campaignOf(campaignCell) : defaultCampaign;
+    if (!campaignCode) return reject(`Unknown campaign "${campaignCell}"`);
 
     seen.add(key);
-    accepted.push({ line, raw: rawLine, leadCode: code, campaignCode, companyName: company, contactName: fullName, phone, email });
+    accepted.push({
+      line, raw: rawLine, leadCode: code, campaignCode,
+      companyName: parts[1] || code, contactName: parts[2] || '', phone: parts[3] || '', email,
+    });
   });
   return { accepted, rejected };
 }

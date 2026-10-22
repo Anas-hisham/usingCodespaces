@@ -13,7 +13,7 @@ export const tipReducers = {
     if (!title || !content) return;
     const now = new Date().toISOString();
     for (const agentId of new Set(a.payload.agentIds)) {
-      if (!state.users.some(u => u.id === agentId && u.role === 'agent' && u.qualityId === actor.id)) continue;   // only the agents it follows
+      if (!state.users.some(u => u.id === agentId && u.role === 'agent')) continue;
       state.tips.unshift({ id: crypto.randomUUID(), authorId: actor.id, authorName: actor.name, agentId, title, content, createdAt: now, acknowledgedAt: null, seenBy: [actor.id] });
       notifyUser(state, agentId, actor.id, { type: 'tip', title: 'New tip from Quality', message: title });
     }

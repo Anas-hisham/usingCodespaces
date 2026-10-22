@@ -30,7 +30,7 @@ export function QueueLeadRow({
   const enterTodayAt = becomesTodayAt(tp);
 
   return (
-    <div className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 sm:px-5 py-3 hover:bg-slate-50 transition-colors">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{lead.leadCode}</span>
@@ -61,7 +61,7 @@ export function QueueLeadRow({
         </div>
       </div>
 
-      <div className="hidden md:flex flex-col items-end gap-0.5 text-xs shrink-0 text-right">
+      <div className="flex flex-row flex-wrap gap-x-3 gap-y-0.5 sm:hidden md:flex md:flex-col md:items-end md:shrink-0 md:text-right text-xs">
         {bucket === 'next' && enterTodayAt !== null && (
           <span className="text-slate-700 font-medium flex items-center gap-1">
             <Hourglass className="w-3 h-3" />
@@ -79,7 +79,7 @@ export function QueueLeadRow({
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center flex-wrap gap-1.5 sm:shrink-0">
         {tp && bucket === 'today' && (
           <>
             <button

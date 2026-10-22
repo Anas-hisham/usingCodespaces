@@ -32,7 +32,7 @@ export function MyLeadsPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         <div>
           <h2 className="text-lg font-bold text-slate-900 mb-1">My Leads</h2>
           <p className="text-sm text-slate-600">{visibleLeads.length} leads</p>
@@ -74,8 +74,60 @@ export function MyLeadsPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        {/* Phones: one tappable card per lead instead of a 7-column table */}
+        <ul className="md:hidden divide-y divide-slate-100">
+          {visibleLeads.length === 0 && (
+            <li className="px-4 py-12 text-center text-slate-500">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              No leads found
+            </li>
+          )}
+          {visibleLeads.map(lead => {
+            const completed = lead.touchPoints.filter(tp => tp.status === 'completed').length;
+            const total = lead.touchPoints.length;
+            const cfg = LEAD_STATUS_STYLE[lead.status];
+            return (
+              <li key={lead.id}>
+                <button
+                  onClick={() => setSelectedLead(lead)}
+                  className="w-full text-left px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span className="text-sm font-medium text-slate-900 truncate">{lead.companyName}</span>
+                      </div>
+                      <div className="text-xs text-slate-600 mt-0.5 truncate">{lead.contactName} · {lead.phone || 'No phone'}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.color}`}>{cfg.label}</span>
+                      {lead.expiredAt && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-rose-100 text-rose-700">Expired</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 mt-2">
+                    <span className="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{lead.leadCode}</span>
+                    <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{campaignLabel(state.workflows, lead.campaignCode)}</span>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 rounded-full transition-all"
+                          style={{ width: `${total ? (completed / total) * 100 : 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-slate-600">{completed}/{total}</span>
+                    </div>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full min-w-[720px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Lead Code</th>
@@ -156,17 +208,17 @@ export function MyLeadsPage() {
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/30 animate-fade-in" onClick={() => setSelectedLead(null)} />
           <div className="relative w-full max-w-lg bg-white h-full overflow-y-auto scrollbar-thin animate-slide-in shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 z-10 flex items-center justify-between">
-              <div>
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-4 sm:px-6 py-4 z-10 flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold text-slate-900">{selectedLead.leadCode}</h2>
-                <p className="text-sm text-slate-600">{selectedLead.companyName} • {selectedLead.contactName}</p>
+                <p className="text-sm text-slate-600 break-words">{selectedLead.companyName} • {selectedLead.contactName}</p>
               </div>
-              <button onClick={() => setSelectedLead(null)} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center">
+              <button onClick={() => setSelectedLead(null)} aria-label="Close" className="w-8 h-8 shrink-0 rounded-lg hover:bg-slate-100 flex items-center justify-center">
                 <X className="w-4 h-4 text-slate-600" />
               </button>
             </div>
 
-            <div className="px-6 py-4 border-b border-slate-200">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Phone className="w-3 h-3" />Phone</div>
@@ -189,7 +241,7 @@ export function MyLeadsPage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-b border-slate-200">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
               <h3 className="text-sm font-semibold text-slate-900 mb-3">Touch Points Progress</h3>
               <div className="space-y-2">
                 {selectedLead.touchPoints.map(tp => (
@@ -209,7 +261,7 @@ export function MyLeadsPage() {
             </div>
 
             {selectedLead.callLogs.length > 0 && (
-              <div className="px-6 py-4 border-b border-slate-200">
+              <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
                 <h3 className="text-sm font-semibold text-slate-900 mb-3">Call Logs</h3>
                 <div className="space-y-2">
                   {selectedLead.callLogs.map(cl => (
@@ -225,7 +277,7 @@ export function MyLeadsPage() {
               </div>
             )}
 
-            <div className="px-6 py-4">
+            <div className="px-4 sm:px-6 py-4">
               <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-1.5">
                 <History className="w-3.5 h-3.5 text-slate-500" />
                 Activity History
@@ -247,7 +299,7 @@ export function MyLeadsPage() {
             </div>
 
             {!selectedLead.removedFromQueue && !selectedLead.expiredAt && (
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex gap-2">
                 {selectedLead.stopped ? (
                   <button
                     onClick={() => { dispatch(resumeLeadWorkflow(selectedLead.id)); setSelectedLead(null); }}

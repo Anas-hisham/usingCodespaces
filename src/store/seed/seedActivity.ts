@@ -83,14 +83,13 @@ export function createSeedActivity(users: User[], teams: Team[], leads: Lead[], 
     addMeeting({ type: 'internal_meeting', participantIds: picked.map(a => a.id), participantNames: picked.map(a => a.name), title: `${t.name} weekly sync`, date: localDay(now + (ti % 2) * DAY), time: '09:00', duration: 30, notes: 'Targets for the week and blockers.', status: 'arranged', priority: 'normal', createdBy: tl.id });
     addMeeting({ type: 'internal_meeting', participantIds: [t.agentIds[0]], participantNames: [byId(t.agentIds[0]).name], title: `1:1 coaching - ${byId(t.agentIds[0]).name}`, date: localDay(now - (ti + 1) * DAY), time: '15:00', duration: 30, notes: 'Call review.', outcome: 'Agreed on a daily plan.', status: 'completed', priority: 'normal', createdBy: tl.id });
   });
-  quality.forEach(q => {
-    const picked = agents.filter(a => a.qualityId === q.id).slice(0, 3);
+  quality.forEach((q, qi) => {
+    const picked = agents.filter((_, i) => i % 2 === qi).slice(0, 3);
     addMeeting({ type: 'internal_meeting', participantIds: picked.map(a => a.id), participantNames: picked.map(a => a.name), title: 'Call quality review', date: localDay(now + DAY), time: '11:30', duration: 45, notes: 'Listen to recorded calls together.', status: 'arranged', priority: 'normal', createdBy: q.id });
   });
   oms.forEach(om => {
     const tls = teams.filter(t => t.managerId === om.id).map(t => byId(t.leaderId));
-    const omQuality = quality.find(q => q.lob === om.lob) ?? quality[0];
-    addMeeting({ type: 'internal_meeting', participantIds: [...tls.map(t => t.id), omQuality.id], participantNames: [...tls.map(t => t.name), omQuality.name], title: 'Operations review', date: localDay(now + 2 * DAY), time: '10:00', duration: 60, notes: 'Month-to-date numbers and quality findings.', status: 'arranged', priority: 'high', createdBy: om.id });
+    addMeeting({ type: 'internal_meeting', participantIds: [...tls.map(t => t.id), quality[0].id], participantNames: [...tls.map(t => t.name), quality[0].name], title: 'Operations review', date: localDay(now + 2 * DAY), time: '10:00', duration: 60, notes: 'Month-to-date numbers and quality findings.', status: 'arranged', priority: 'high', createdBy: om.id });
   });
 
   // ---------- sales: this month and last month, recorded by Quality ----------
@@ -114,7 +113,7 @@ export function createSeedActivity(users: User[], teams: Team[], leads: Lead[], 
       const key = `${lead.id}|${saleType}|${date}`;
       if (seen.has(key)) return;
       seen.add(key);
-      const q = (agent.qualityId && byId(agent.qualityId)) || quality[(k + ai) % quality.length];
+      const q = quality[(k + ai) % quality.length];
       sales.push({ id: `s-${sales.length + 1}`, agentId: agent.id, leadId: lead.id, leadName: lead.companyName, saleType, date, createdBy: q.id, createdAt: iso(Math.min(dateMs + 5 * 3600000, now)) });
     };
     for (let k = 0; k < thisMonth; k++) make(k, monthStart + Math.floor(rng.next() * daysSoFar) * DAY);
@@ -174,7 +173,7 @@ export function createSeedActivity(users: User[], teams: Team[], leads: Lead[], 
   const tips: Tip[] = [];
   agents.forEach((agent, ai) => {
     if (ai % 2 !== 0) return;
-    const q = (agent.qualityId && byId(agent.qualityId)) || quality[ai % quality.length];
+    const q = quality[ai % quality.length];
     const [title, content] = TIPS[ai % TIPS.length];
     const newest = ai >= agents.length - 6;
     const read = !newest && rng.chance(0.6);

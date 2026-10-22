@@ -9,7 +9,5 @@ export function navBadges(state: AppState, me: User): Partial<Record<PageId, num
   const updates = state.updates.filter(u => !u.seenBy.includes(me.id) && updateRecipients(u, state.users, state.teams).some(r => r.id === me.id)).length;
   const tasks = state.tasks.filter(t => t.authorId !== me.id && t.assignedTo.includes(me.id) && !t.seenBy.includes(me.id)).length;
   const tips = me.role === 'agent' ? state.tips.filter(t => t.agentId === me.id && !t.seenBy.includes(me.id)).length : 0;
-  // escalations waiting for ME to act on
-  const escalations = state.escalations.filter(e => e.status === 'open' && e.handlerId === me.id).length;
-  return { updates, tasks, tips, escalations };
+  return { updates, tasks, tips };
 }
