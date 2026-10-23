@@ -14,8 +14,11 @@ import { EmailCenterPage } from '@/features/email-center/EmailCenterPage';
 import { SalesPage } from '@/features/sales/SalesPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { TeamsPage } from '@/features/teams/TeamsPage';
+import { EscalationsPage } from '@/features/escalations/EscalationsPage';
 import { TipsPage } from '@/features/tips/TipsPage';
 import { LeadPoolPage } from '@/features/lead-pool/LeadPoolPage';
+import { UsersPage } from '@/features/users/UsersPage';
+import { CampaignsPage } from '@/features/campaigns/CampaignsPage';
 
 export function App() {
   const { state, dispatch } = useStore();
@@ -38,6 +41,8 @@ export function App() {
       onLogout={() => dispatch(setCurrentUser(''))}
     >
       {currentPage === 'adminleads' && <LeadPoolPage />}
+      {currentPage === 'campaigns' && <CampaignsPage />}
+      {currentPage === 'users' && <UsersPage />}
       {currentPage === 'dashboard' && <DashboardPage />}
       {currentPage === 'workqueue' && <WorkQueuePage />}
       {currentPage === 'calendar' && <CalendarPage />}
@@ -48,6 +53,7 @@ export function App() {
       {currentPage === 'sales' && <SalesPage />}
       {currentPage === 'analytics' && <AnalyticsPage />}
       {currentPage === 'teams' && <TeamsPage />}
+      {currentPage === 'escalations' && <EscalationsPage />}
       {currentPage === 'tips' && <TipsPage />}
     </AppShell>
   );

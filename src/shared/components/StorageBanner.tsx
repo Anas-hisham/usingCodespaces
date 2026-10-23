@@ -30,7 +30,7 @@ export function StorageBanner() {
   };
 
   return (
-    <div role="alert" className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[100] w-[min(92vw,34rem)] bg-rose-600 text-white rounded-xl shadow-2xl px-4 py-3 flex items-center gap-3">
+    <div role="alert" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[min(92vw,34rem)] bg-rose-600 text-white rounded-xl shadow-2xl px-4 py-3 flex items-center gap-3">
       <AlertTriangle className="w-5 h-5 shrink-0" />
       <p className="text-sm flex-1">Your latest changes could not be saved (browser storage is full or blocked). Download a backup so nothing is lost.</p>
       <button onClick={exportBackup} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-sm font-medium">

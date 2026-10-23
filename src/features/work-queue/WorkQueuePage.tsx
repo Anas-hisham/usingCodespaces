@@ -93,8 +93,8 @@ export function WorkQueuePage() {
       />
 
       {/* Find a lead: type to search, then select it to open its details (same picker as the email form) */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-3">
-        <div className="flex-1">
+      <div className="mb-6 flex gap-3">
+        <div className="flex-1 min-w-0">
           <LeadPicker
             leads={myLeads}
             value=""
@@ -104,7 +104,7 @@ export function WorkQueuePage() {
         </div>
         <button
           onClick={() => setShowTake(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-all flex items-center justify-center gap-1.5 shrink-0"
+          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-all flex items-center gap-1.5 shrink-0"
         >
           <Download className="w-3.5 h-3.5" />
           Take Leads

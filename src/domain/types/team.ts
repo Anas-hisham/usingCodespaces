@@ -4,5 +4,5 @@ export interface Team {
   name: string;
   leaderId: string;
   agentIds: string[];
-  managerId: string;
+  managerId: string;   // '' = the Admin took the team away from its manager and it has none for now
 }

@@ -1,7 +1,7 @@
 /** In-app notifications. */
 export interface Notification {
   id: string;
-  type: 'meeting' | 'update' | 'task' | 'overdue' | 'email' | 'tip';
+  type: 'meeting' | 'update' | 'task' | 'overdue' | 'email' | 'tip' | 'escalation';
   title: string;
   message: string;
   timestamp: string;

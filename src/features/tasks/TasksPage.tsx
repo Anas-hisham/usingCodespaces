@@ -43,12 +43,12 @@ export function TasksPage() {
   );
 
   const assignees = currentUser.role === 'operation_manager'
-    ? state.users.filter(u => u.role === 'quality' || (u.role === 'team_leader' && state.teams.some(t => t.leaderId === u.id && t.managerId === currentUser.id)))   // my team leaders + Quality
+    ? state.users.filter(u => (u.role === 'quality' && u.lob === currentUser.lob) || (u.role === 'team_leader' && state.teams.some(t => t.leaderId === u.id && t.managerId === currentUser.id)))   // my team leaders + Quality
     : state.users.filter(u => myTeam?.agentIds.includes(u.id));
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Tasks</h2>
           <p className="text-sm text-slate-600">

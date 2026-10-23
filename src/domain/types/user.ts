@@ -11,4 +11,10 @@ export interface User {
   initials: string;
   color: string;
   dailyCallTarget: number;
+  /** Line of business (e.g. REG, DJ). Set on Operation Managers and Quality. Teams, Team Leaders and agents take the LOB of their manager. */
+  lob?: string;
+  /** Agents only: the Quality member who follows this agent (always one of the same LOB). */
+  qualityId?: string;
+  /** Set only on accounts the Admin creates from the Create User page. The demo people have none (any password signs them in). Prototype only: stored as plain text in localStorage, a real backend must store a hash. */
+  password?: string;
 }

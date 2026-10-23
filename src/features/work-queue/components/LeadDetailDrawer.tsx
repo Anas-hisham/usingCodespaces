@@ -30,10 +30,10 @@ export function LeadDetailDrawer({
       <div className="absolute inset-0 bg-black/30 animate-fade-in" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white h-full overflow-y-auto scrollbar-thin animate-slide-in shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-4 sm:px-6 py-4 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <div className="min-w-0 max-w-full">
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-4 sm:px-6 py-4 z-10 flex items-center justify-between">
+          <div>
             <h2 className="text-lg font-bold text-slate-900">{lead.leadCode}</h2>
-            <p className="text-sm text-slate-600 break-words">{lead.companyName} • {lead.contactName}</p>
+            <p className="text-sm text-slate-600">{lead.companyName} • {lead.contactName}</p>
           </div>
           <div className="flex items-center gap-2">
             {lead.stopped && <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700">Stopped</span>}
@@ -76,7 +76,7 @@ export function LeadDetailDrawer({
         </div>
 
         {lead.stopped && (
-          <div className="mx-4 sm:mx-6 mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-3">
+          <div className="mx-6 mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-3">
             <PauseCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <p className="text-xs text-amber-800 flex-1">This workflow is stopped. Resume it to bring the lead back to the queue, or delete it.</p>
             <button onClick={onResume} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 shrink-0">Resume</button>

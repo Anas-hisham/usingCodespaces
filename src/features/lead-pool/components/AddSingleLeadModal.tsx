@@ -18,8 +18,8 @@ export function AddSingleLeadModal({ workflows, existing, onClose, onAdd, adminI
     !code ? '' :
     !isValidLeadCode(code) ? 'Lead ID must contain letters and numbers only' :
     existing.some(l => normalizeLeadCode(l.leadCode) === normalizeLeadCode(code)) ? 'This lead ID already exists' :
-    f.email && !isValidEmail(f.email.trim()) ? 'Invalid email' : '';
-  const canAdd = !!code && !error && !!f.companyName.trim() && !!f.campaignCode;
+    f.email.trim() && !isValidEmail(f.email.trim()) ? 'Invalid email' : '';
+  const canAdd = !!code && !error && !!f.companyName.trim() && !!f.contactName.trim() && !!f.email.trim() && !!f.campaignCode;
 
   const submit = () => {
     if (!canAdd) return;
@@ -45,9 +45,9 @@ export function AddSingleLeadModal({ workflows, existing, onClose, onAdd, adminI
             {workflows.map(w => <option key={w.id} value={w.campaignCode}>{campaignLabel(workflows, w.campaignCode)}</option>)}
           </select></div>
         <div className="col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1.5">Company *</label><input className={TEXT_INPUT_CLASS} value={f.companyName} onChange={set('companyName')} /></div>
-        <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Contact person</label><input className={TEXT_INPUT_CLASS} value={f.contactName} onChange={set('contactName')} /></div>
-        <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Phone</label><input className={TEXT_INPUT_CLASS} value={f.phone} onChange={set('phone')} /></div>
-        <div className="col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label><input className={TEXT_INPUT_CLASS} value={f.email} onChange={set('email')} /></div>
+        <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Full name *</label><input className={TEXT_INPUT_CLASS} value={f.contactName} onChange={set('contactName')} /></div>
+        <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Phone (optional)</label><input className={TEXT_INPUT_CLASS} value={f.phone} onChange={set('phone')} /></div>
+        <div className="col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1.5">Email *</label><input className={TEXT_INPUT_CLASS} value={f.email} onChange={set('email')} /></div>
       </div>
       {error && <p className="text-xs text-rose-700 bg-rose-50 rounded-lg px-3 py-2">{error}</p>}
     </LeadImportModalShell>

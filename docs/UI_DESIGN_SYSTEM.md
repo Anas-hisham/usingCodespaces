@@ -24,26 +24,13 @@ Tailwind فقط. الـ tokens الأساسية موجودة في أول `src/in
 - Modal: overlay `bg-slate-900/60 backdrop-blur-sm`، المحتوى `rounded-2xl`، الهيدر `border-b border-slate-200`
 - Input focus: `focus:border-blue-500 focus:ring-1 focus:ring-blue-500`
 - Progress bar: `h-1.5 rounded-full bg-slate-200` والجزء المعبّي `bg-blue-500` (أخضر لما يوصل 100%)
-- Sidebar: أبيض، `w-60` على الشاشات الكبيرة، أيقونات بس على الصغيرة
+- Sidebar: أبيض، `w-60` ثابت على الشاشات الكبيرة (`lg`+). تحت `lg` بيتحول لـ drawer بيفتح من زرار الهامبرجر في الـ top bar ويتقفل بالضغط بره أو Escape أو لما تختار صفحة
 
 ## Breakpoints
 
-mobile-first: `sm 640` · `md 768` · `lg 1024`.
+mobile-first: `sm 640` · `md 768` · `lg 1024`. الـ Sidebar بيتحوّل لـ drawer تحت `lg`.
 
-| الشاشة | الـ Sidebar |
-|---|---|
-| موبايل (تحت `md`) | مخفي. زرار ☰ في الـ header بيفتحه كـ drawer فوق الصفحة (overlay + Escape + قفل أوتوماتيك بعد اختيار صفحة) |
-| تابلت (`md` → `lg`) | شريط أيقونات `w-[72px]` |
-| ديسكتوب (`lg`+) | كامل `w-60` |
-
-قواعد الـ responsive في أي كود جديد:
-- الصفحة: `p-4 sm:p-6`. الـ modal/drawer: padding `px-4 sm:px-6`.
-- الـ modal لازم `max-h-modal overflow-y-auto` (utility في `index.css` بتستخدم `dvh`). الارتفاع الكامل للشاشة بـ `h-app` / `min-h-app` مش `h-screen`.
-- أي grid بأكتر من عمودين يبدأ بـ `grid-cols-1` أو `grid-cols-2` ويكبر بـ `sm:`/`lg:`. حقول التاريخ/الوقت جنب بعض تبقى `grid-cols-1 sm:grid-cols-2`.
-- الصف اللي فيه نص + أزرار: `flex-col sm:flex-row` أو `flex-wrap` — الأزرار متتضغطش بجنب النص على موبايل.
-- الجداول: `overflow-x-auto` + `min-w-[...]` على الـ `<table>`. لو الجدول صفحة أساسية للـ agent (زي My Leads) اعرضه كـ cards تحت `md`.
-- الـ dropdown اللي عرضه ثابت (زي الإشعارات) يبقى `fixed left-2 right-2` على الموبايل و`sm:absolute sm:w-80` من `sm`.
-- الـ inputs على الموبايل 16px (قاعدة في `index.css`) عشان iOS ميعملش zoom.
+قواعد الـ responsive: الـ padding `p-4 sm:p-6`، الـ headers `flex-wrap gap-3`، الفورمز `grid-cols-1 sm:grid-cols-2`، الجداول جوه `overflow-x-auto`، الـ modals `max-h-[92dvh] overflow-y-auto` و`px-4 sm:px-6`، والـ dropdowns (الجرس) بتبقى `fixed` بعرض الشاشة على الموبايل.
 
 ## Collapsible (السهم اللي بيفتح ويقفل)
 

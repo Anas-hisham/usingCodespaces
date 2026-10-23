@@ -21,10 +21,10 @@ export function CampaignSection({ campaign, now, sections, handlers }: CampaignS
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <button
         onClick={() => toggle(campKey)}
-        className="w-full flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 sm:px-5 py-3.5 hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors"
       >
         {campOpen ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-        <span className="text-base font-bold text-slate-900 min-w-0 break-words">{campaign.name}</span>
+        <span className="text-base font-bold text-slate-900">{campaign.name}</span>
         <div className="ml-auto flex items-center gap-1.5 text-xs">
           <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Today {campaign.todayCount}</span>
           <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">Next {campaign.nextCount}</span>

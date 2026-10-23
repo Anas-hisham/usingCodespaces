@@ -61,7 +61,7 @@ export function QueueLeadRow({
         </div>
       </div>
 
-      <div className="flex flex-row flex-wrap gap-x-3 gap-y-0.5 sm:hidden md:flex md:flex-col md:items-end md:shrink-0 md:text-right text-xs">
+      <div className="hidden md:flex flex-col items-end gap-0.5 text-xs shrink-0 text-right">
         {bucket === 'next' && enterTodayAt !== null && (
           <span className="text-slate-700 font-medium flex items-center gap-1">
             <Hourglass className="w-3 h-3" />
@@ -79,7 +79,7 @@ export function QueueLeadRow({
         </span>
       </div>
 
-      <div className="flex items-center flex-wrap gap-1.5 sm:shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
         {tp && bucket === 'today' && (
           <>
             <button

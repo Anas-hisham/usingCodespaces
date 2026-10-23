@@ -6,7 +6,7 @@ export function GroupPerformanceTable({ rows, first }: { rows: GroupRow[]; first
   const td = 'px-3 py-2.5 text-sm text-slate-700 whitespace-nowrap';
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[620px]">
+      <table className="w-full">
         <thead className="border-b border-slate-100">
           <tr>
             <th className={th}>{first}</th><th className={th}>Calls</th>

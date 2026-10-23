@@ -5,7 +5,7 @@ export function DeleteLeadModal({ lead, hasSales, onCancel, onConfirm }: { lead:
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 animate-slide-up p-5 sm:p-6 max-h-modal overflow-y-auto">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 animate-slide-up max-h-[92dvh] overflow-y-auto scrollbar-thin p-6">
         <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center mb-3">
           <Trash2 className="w-5 h-5 text-rose-600" />
         </div>

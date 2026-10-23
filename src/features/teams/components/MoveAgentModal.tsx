@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { Team, User } from '@/domain/types';
 import { UserAvatar } from '@/shared/components/UserAvatar';
 
-/** The Operation Manager picks the new team for one agent. Only the team changes - the agent keeps every lead and all the data. */
+/** The Admin picks the new team for one agent. Only the team changes - the agent keeps every lead and all the data. */
 export function MoveAgentModal({ agent, fromTeam, teams, users, onMove, onClose }: {
   agent: User; fromTeam: Team | undefined; teams: Team[]; users: User[];
   onMove: (toTeamId: string) => void; onClose: () => void;
@@ -16,7 +16,7 @@ export function MoveAgentModal({ agent, fromTeam, teams, users, onMove, onClose 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Move agent">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up max-h-modal overflow-y-auto scrollbar-thin">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up max-h-[92dvh] overflow-y-auto scrollbar-thin">
         <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">Move agent to another team</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center" aria-label="Close">

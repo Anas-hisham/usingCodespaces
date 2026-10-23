@@ -44,7 +44,7 @@ export function SheetEmailModal({ templates, myLeads, agentName, onClose, onSend
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={progress.running ? undefined : onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 animate-slide-up max-h-modal overflow-y-auto scrollbar-thin">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 animate-slide-up max-h-[92vh] max-h-[92dvh] overflow-y-auto scrollbar-thin">
         <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Send from sheet</h2>
@@ -83,8 +83,7 @@ export function SheetEmailModal({ templates, myLeads, agentName, onClose, onSend
           )}
 
           {text.trim() && (
-            <div className="border border-slate-200 rounded-xl overflow-x-auto scrollbar-thin" aria-live="polite">
-              <div className="min-w-[34rem]">
+            <div className="border border-slate-200 rounded-xl overflow-hidden" aria-live="polite">
               <div className="grid grid-cols-[2rem_1.6fr_1fr_1fr_5.5rem] gap-2 px-3 py-2 bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-200">
                 <span>#</span><span>Email</span><span>Name</span><span>Company</span><span className="text-right">Status</span>
               </div>
@@ -111,7 +110,6 @@ export function SheetEmailModal({ templates, myLeads, agentName, onClose, onSend
                     <span>{r.line}</span><span className="truncate"><span className="font-mono">{r.raw.trim()}</span> — {r.reason}</span>
                   </div>
                 ))}
-              </div>
               </div>
             </div>
           )}

@@ -120,7 +120,7 @@ export function AnalyticsPage() {
             ))}
             {calls.calls === 0 && <div className="text-sm text-slate-500">No calls in this period.</div>}
           </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex gap-6 text-sm text-slate-600">
+          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
             <span>Meetings arranged: <b className="text-slate-900">{f.meetings}</b></span>
             <span>Sales: <b className="text-slate-900">{sales.length}</b></span>
           </div>

@@ -13,17 +13,20 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const { state, dispatch } = useStore();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
   const teamLabel = (u: User) => state.teams.find(t => t.id === u.teamId)?.name ?? '';
 
   const handleLogin = () => {
     if (selectedUser) {
+      // accounts the Admin created have a real password; the demo people accept anything (prototype)
+      if (selectedUser.password !== undefined && password !== selectedUser.password) { setLoginError('Wrong password for this account.'); return; }
       dispatch(setCurrentUser(selectedUser.id));
       onLogin();
     }
   };
 
   return (
-    <div className="min-h-app flex bg-slate-50">
+    <div className="min-h-screen flex bg-slate-50">
       {/* Left brand panel */}
       <div className="hidden lg:flex lg:w-[46%] bg-slate-950 relative overflow-hidden">
         <div className="absolute -top-32 -left-24 w-[26rem] h-[26rem] bg-blue-600/30 rounded-full blur-3xl" />
@@ -78,7 +81,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
       </div>
 
       {/* Right login panel */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-8 sm:py-10">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
@@ -91,7 +94,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
           <p className="text-slate-600 text-sm mb-6">Select your profile to sign in</p>
 
           {/* User selection: grouped by role, the list scrolls (there are many people) */}
-          <div className="max-h-[22rem] overflow-y-auto scrollbar-thin pr-1 mb-5 space-y-3" role="radiogroup" aria-label="Profile">
+          <div className="max-h-[16rem] sm:max-h-[22rem] overflow-y-auto scrollbar-thin pr-1 mb-5 space-y-3" role="radiogroup" aria-label="Profile">
             {LOGIN_GROUPS.map(group => {
               const people = state.users.filter(u => u.role === group.role);
               if (people.length === 0) return null;
@@ -104,7 +107,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
                       return (
                         <button
                           key={user.id}
-                          onClick={() => setSelectedUser(user)}
+                          onClick={() => { setSelectedUser(user); setLoginError(''); }}
                           role="radio"
                           aria-checked={selected}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl border transition-all text-left ${
@@ -142,10 +145,13 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
               id="login-password"
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => { setPassword(e.target.value); setLoginError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
+              aria-invalid={!!loginError}
               placeholder="Enter your password"
               className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
             />
+            {loginError && <p role="alert" className="text-xs text-rose-600 mt-1.5">{loginError}</p>}
           </div>
 
           <button

@@ -32,10 +32,10 @@ export function UserMenu({ currentUser, onLogout }: UserMenuProps) {
       {userMenuOpen && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setUserMenuOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-lg border border-slate-200 z-40 animate-slide-up">
+          <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-40 animate-slide-up">
             <div className="px-4 py-3 border-b border-slate-100">
-              <div className="font-medium text-sm text-slate-900 truncate">{currentUser.name}</div>
-              <div className="text-xs text-slate-600 truncate">{currentUser.email}</div>
+              <div className="font-medium text-sm text-slate-900">{currentUser.name}</div>
+              <div className="text-xs text-slate-600">{currentUser.email}</div>
               <div className="mt-1.5">
                 <span className="inline-block text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium">
                   {roleLabel(currentUser.role)}
